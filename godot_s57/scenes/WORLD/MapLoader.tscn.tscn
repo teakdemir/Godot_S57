@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://dgepnxp4wu6th"]
+
+[node name="MapLoader_tscn" type="Node3D"]
