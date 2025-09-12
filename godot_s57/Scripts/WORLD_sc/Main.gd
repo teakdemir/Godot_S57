@@ -1,12 +1,12 @@
 extends Node3D
 
-var http_client: S57HTTPClient  # ← Changed type
+var http_client: S57HTTPClient  #HTTPClient godotta zaten built-in class.
 
 func _ready():
 	print("🗺️ S-57 Maritime Visualization Starting...")
 	
 	# HTTP client setup
-	http_client = S57HTTPClient.new()  # ← Changed constructor
+	http_client = S57HTTPClient.new()  
 	http_client.name = "S57HTTPClient"
 	add_child(http_client)
 	
@@ -33,6 +33,6 @@ func _on_api_error(error: String):
 	print("❌ API Connection FAILED: " + error)
 
 func _input(event):
-	if event.is_action_pressed("ui_accept"):  # Enter key
+	if event.is_action_pressed("ui_accept"): 
 		print("🔄 Retesting API...")
 		test_api()
