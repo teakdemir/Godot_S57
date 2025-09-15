@@ -4,10 +4,10 @@ extends Control
 signal map_selected(map_id: int)
 signal refresh_requested
 
-@onready var map_dropdown: OptionButton = $VBoxContainer/HBoxContainer/MapDropdown
-@onready var load_button: Button = $VBoxContainer/HBoxContainer2/LoadButton
-@onready var refresh_button: Button = $VBoxContainer/HBoxContainer2/RefreshButton
-@onready var info_label: RichTextLabel = $VBoxContainer/InfoLabel
+@onready var map_dropdown: OptionButton = $Panel/MarginContainer/VBoxContainer/SelectionContainer/OptionButton
+@onready var load_button: Button = $Panel/MarginContainer/VBoxContainer/ButtonContainer/LoadMap
+@onready var refresh_button: Button = $Panel/MarginContainer/VBoxContainer/ButtonContainer/Refresh
+@onready var info_label: RichTextLabel = $Panel/MarginContainer/VBoxContainer/ScrollContainer/InfoLabel
 
 var available_maps: Array[MapData.ChartInfo] = []
 var selected_map_id: int = -1
