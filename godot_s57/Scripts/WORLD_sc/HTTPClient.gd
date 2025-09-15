@@ -1,4 +1,5 @@
-class_name S57HTTPClient  # ← Changed name
+# res://scripts/WORLD_sc/HTTPClient.gd - FIXED
+class_name S57HTTPClient
 extends Node
 
 signal request_completed(data: Dictionary)
@@ -12,16 +13,14 @@ func _ready():
 	http_request.request_completed.connect(_on_request_completed)
 
 func test_connection():
-	"""Sadece API'ye bağlanabilir miyiz test et"""
 	print("Testing API connection...")
 	http_request.request("http://localhost:8000/health")
 
 func get_maps_list():
-	"""Map listesini getir"""
 	print("Getting maps list...")
 	http_request.request("http://localhost:8000/api/maps")
 
-func _on_request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray):
+func _on_request_completed(_result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	print("Response code: " + str(response_code))
 	
 	if response_code == 200:
