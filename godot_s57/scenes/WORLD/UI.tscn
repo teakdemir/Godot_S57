@@ -1,26 +1,8 @@
-[gd_scene load_steps=6 format=3 uid="uid://bxy5yokaue7dw"]
+[gd_scene load_steps=3 format=3 uid="uid://bxy5yokaue7dw"]
 
 [ext_resource type="Script" uid="uid://lpr03b0pbhcq" path="res://Scripts/WORLD_sc/UI.gd" id="1_hfun2"]
 
 [sub_resource type="Theme" id="Theme_hfun2"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hfun2"]
-bg_color = Color(0.156863, 0.207843, 0.576471, 1)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0, 0.737255, 0.831373, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pear7"]
-bg_color = Color(0, 0.737255, 0.831373, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lwh8l"]
-bg_color = Color(0.156863, 0.207843, 0.576471, 1)
 
 [node name="Ui" type="Control"]
 layout_mode = 3
@@ -31,101 +13,65 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_hfun2")
 
-[node name="BackGround" type="ColorRect" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.101961, 0.137255, 0.494118, 1)
-
-[node name="MainMargin" type="MarginContainer" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 20
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MainMargin"]
-layout_mode = 2
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_right = 156.0
+offset_bottom = 132.0
+scale = Vector2(4, 4)
 theme = SubResource("Theme_hfun2")
 
-[node name="HBoxContainer3" type="HBoxContainer" parent="MainMargin/VBoxContainer"]
+[node name="HBoxContainer3" type="HBoxContainer" parent="VBoxContainer"]
 layout_mode = 2
 alignment = 1
 
-[node name="Label" type="Label" parent="MainMargin/VBoxContainer/HBoxContainer3"]
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer3"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.909804, 0.917647, 0.964706, 1)
+theme_override_colors/font_color = Color(0.415686, 0.701961, 0, 1)
 theme_override_colors/font_shadow_color = Color(0, 0.113725, 0.188235, 1)
 theme_override_font_sizes/font_size = 24
 text = "S-57 Chart Loader"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="HSeparator" type="HSeparator" parent="MainMargin/VBoxContainer"]
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
 layout_direction = 2
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="HBoxContainer" type="HBoxContainer" parent="MainMargin/VBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
 layout_mode = 2
-size_flags_vertical = 4
 alignment = 1
 
-[node name="Label" type="Label" parent="MainMargin/VBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="VBoxContainer/HBoxContainer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.909804, 0.917647, 0.964706, 1)
 text = "Select Map:"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="MapDropdown" type="OptionButton" parent="MainMargin/VBoxContainer/HBoxContainer"]
-custom_minimum_size = Vector2(400, 32)
+[node name="MapDropdown" type="OptionButton" parent="VBoxContainer/HBoxContainer"]
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.909804, 0.917647, 0.964706, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_hfun2")
 
-[node name="HBoxContainer2" type="HBoxContainer" parent="MainMargin/VBoxContainer"]
+[node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer"]
 layout_mode = 2
-size_flags_vertical = 4
 alignment = 1
 
-[node name="LoadButton" type="Button" parent="MainMargin/VBoxContainer/HBoxContainer2"]
-custom_minimum_size = Vector2(120, 36)
+[node name="LoadButton" type="Button" parent="VBoxContainer/HBoxContainer2"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.909804, 0.917647, 0.964706, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_pear7")
 text = "Load Map"
 icon_alignment = 1
 
-[node name="RefreshButton" type="Button" parent="MainMargin/VBoxContainer/HBoxContainer2"]
-custom_minimum_size = Vector2(120, 36)
+[node name="RefreshButton" type="Button" parent="VBoxContainer/HBoxContainer2"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.909804, 0.917647, 0.964706, 1)
-theme_override_styles/normal = SubResource("StyleBoxFlat_lwh8l")
 text = "Refresh"
 icon_alignment = 1
 
-[node name="HSeparator2" type="HSeparator" parent="MainMargin/VBoxContainer"]
+[node name="HSeparator2" type="HSeparator" parent="VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="InfoArea" type="ScrollContainer" parent="MainMargin"]
+[node name="InfoLabel" type="RichTextLabel" parent="VBoxContainer"]
 layout_mode = 2
-
-[node name="InfoLabel" type="RichTextLabel" parent="MainMargin/InfoArea"]
-layout_mode = 2
-size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_colors/default_color = Color(0.909804, 0.917647, 0.964706, 1)
-theme_override_font_sizes/normal_font_size = 14
-bbcode_enabled = true
-fit_content = true
+size_flags_stretch_ratio = 10.0
+text = "Loading Maps..."
+tab_size = 10
