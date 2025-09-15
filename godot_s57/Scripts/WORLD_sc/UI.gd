@@ -1,4 +1,3 @@
-# res://scripts/WORLD_sc/UI.gd
 extends Control
 
 signal map_selected(map_id: int)

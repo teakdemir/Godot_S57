@@ -1,8 +1,113 @@
-[gd_scene load_steps=3 format=3 uid="uid://bxy5yokaue7dw"]
+[gd_scene load_steps=13 format=3 uid="uid://bxy5yokaue7dw"]
 
 [ext_resource type="Script" uid="uid://lpr03b0pbhcq" path="res://Scripts/WORLD_sc/UI.gd" id="1_hfun2"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hfun2"]
+bg_color = Color(0.972549, 0.980392, 0.988235, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
 [sub_resource type="Theme" id="Theme_hfun2"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0xted"]
+bg_color = Color(0.898039, 0.905882, 0.921569, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_o2vlw"]
+bg_color = Color(0.231373, 0.509804, 0.964706, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1yv46"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 32.0
+content_margin_bottom = 8.0
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lwh8l"]
+bg_color = Color(0.113725, 0.305882, 0.847059, 1)
+border_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+expand_margin_left = 16.0
+expand_margin_top = 8.0
+expand_margin_right = 16.0
+expand_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pear7"]
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+bg_color = Color(0.145098, 0.388235, 0.921569, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e21ly"]
+bg_color = Color(0.898039, 0.905882, 0.921569, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kmee7"]
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+bg_color = Color(0.921569, 0.956863, 1, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6gqgc"]
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.145098, 0.388235, 0.921569, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_o6err"]
+content_margin_left = 12.0
+content_margin_top = 12.0
+content_margin_right = 12.0
+content_margin_bottom = 12.0
+bg_color = Color(0.945098, 0.960784, 0.976471, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.886275, 0.909804, 0.941176, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [node name="Ui" type="Control"]
 layout_mode = 3
@@ -27,6 +132,7 @@ offset_right = 20.0
 offset_bottom = 20.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hfun2")
 
 [node name="MarginContainer" type="MarginContainer" parent="Panel"]
 layout_mode = 1
@@ -51,33 +157,40 @@ theme_override_constants/separation = 4
 
 [node name="Title" type="Label" parent="Panel/MarginContainer/VBoxContainer/HeaderContainer"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.117647, 0.160784, 0.231373, 1)
 theme_override_font_sizes/font_size = 24
 text = "S-57 Map Loader"
 horizontal_alignment = 1
 
 [node name="SubTitle" type="Label" parent="Panel/MarginContainer/VBoxContainer/HeaderContainer"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.392157, 0.454902, 0.545098, 1)
 theme_override_font_sizes/font_size = 16
 text = "Maritime Map 3D Visualization System"
 horizontal_alignment = 1
 
 [node name="HSeparator" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_override_styles/separator = SubResource("StyleBoxFlat_0xted")
 
 [node name="SelectionContainer" type="VBoxContainer" parent="Panel/MarginContainer/VBoxContainer"]
 layout_mode = 2
 
 [node name="Select" type="Label" parent="Panel/MarginContainer/VBoxContainer/SelectionContainer"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.215686, 0.254902, 0.317647, 1)
 theme_override_font_sizes/font_size = 16
 text = "Select Map:"
 
 [node name="OptionButton" type="OptionButton" parent="Panel/MarginContainer/VBoxContainer/SelectionContainer"]
 custom_minimum_size = Vector2(350, 30)
 layout_mode = 2
+theme_override_styles/focus = SubResource("StyleBoxFlat_o2vlw")
+theme_override_styles/normal = SubResource("StyleBoxFlat_1yv46")
 
 [node name="HSeparator2" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer/SelectionContainer"]
 layout_mode = 2
+theme_override_styles/separator = SubResource("StyleBoxFlat_0xted")
 
 [node name="ButtonContainer" type="HBoxContainer" parent="Panel/MarginContainer/VBoxContainer"]
 layout_mode = 2
@@ -86,19 +199,29 @@ alignment = 1
 
 [node name="LoadMap" type="Button" parent="Panel/MarginContainer/VBoxContainer/ButtonContainer"]
 layout_mode = 2
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_styles/hover = SubResource("StyleBoxFlat_lwh8l")
+theme_override_styles/normal = SubResource("StyleBoxFlat_pear7")
 text = "Load Map"
 
 [node name="VSeparator" type="VSeparator" parent="Panel/MarginContainer/VBoxContainer/ButtonContainer"]
 custom_minimum_size = Vector2(10, 0)
 layout_mode = 2
+theme_override_styles/separator = SubResource("StyleBoxFlat_e21ly")
 
 [node name="Refresh" type="Button" parent="Panel/MarginContainer/VBoxContainer/ButtonContainer"]
 layout_mode = 2
+theme_override_colors/font_hover_color = Color(0.113725, 0.305882, 0.847059, 1)
+theme_override_colors/font_color = Color(0.113725, 0.305882, 0.847059, 1)
+theme_override_styles/hover = SubResource("StyleBoxFlat_kmee7")
+theme_override_styles/normal = SubResource("StyleBoxFlat_6gqgc")
 text = "Refresh
 "
 
 [node name="HSeparator2" type="HSeparator" parent="Panel/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_override_styles/separator = SubResource("StyleBoxFlat_0xted")
 
 [node name="ScrollContainer" type="ScrollContainer" parent="Panel/MarginContainer/VBoxContainer"]
 layout_mode = 2
@@ -106,5 +229,6 @@ size_flags_vertical = 3
 
 [node name="InfoLabel" type="RichTextLabel" parent="Panel/MarginContainer/VBoxContainer/ScrollContainer"]
 layout_mode = 2
+theme_override_styles/normal = SubResource("StyleBoxFlat_o6err")
 bbcode_enabled = true
 scroll_following = true
