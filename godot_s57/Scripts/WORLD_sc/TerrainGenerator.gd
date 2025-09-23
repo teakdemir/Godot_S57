@@ -11,9 +11,6 @@ var water_material: StandardMaterial3D
 var fallback_structure_material: StandardMaterial3D
 var structure_prefabs: Dictionary = {}
 
-var last_center: Vector3 = Vector3.ZERO
-var last_size: Vector2 = Vector2.ZERO
-
 func _ready() -> void:
 	_setup_containers()
 	_setup_materials()
@@ -79,7 +76,6 @@ func _load_structure_prefabs() -> void:
 		push_warning("Harbour prefab not found in %s" % STRUCTURE_PREFAB_DIR)
 
 func generate_phase_one(map_data: Dictionary, scale: float) -> void:
-	print("[TerrainGenerator] Phase 1 start")
 	_setup_containers()
 	_clear_phase_one()
 
@@ -89,17 +85,12 @@ func generate_phase_one(map_data: Dictionary, scale: float) -> void:
 
 	var seaare_polygon: Array = terrain.get("seaare_polygon", [])
 	_create_water_mesh(seaare_polygon, scale, world_config)
-
 	var structures: Array = nav_objects.get("structures", [])
-	print("[TerrainGenerator] Spawning %d harbor structures" % structures.size())
 	_spawn_structures(structures, scale)
-	print("[TerrainGenerator] Phase 1 finished")
 
 func _clear_phase_one() -> void:
 	_clear_children(water_root)
 	_clear_children(structure_root)
-	last_center = Vector3.ZERO
-	last_size = Vector2.ZERO
 
 func _clear_children(container: Node) -> void:
 	if container == null:
@@ -108,14 +99,14 @@ func _clear_children(container: Node) -> void:
 		child.queue_free()
 
 func _create_water_mesh(points: Array, scale: float, world_config: Dictionary) -> void:
-	var width: float = 0.0
-	var depth: float = 0.0
-	var center: Vector3 = Vector3.ZERO
+	var width := 0.0
+	var depth := 0.0
+	var center := Vector3.ZERO
 
 	if points.is_empty():
 		var bounds := MapManager.calculate_godot_bounds(world_config, scale)
-		width = float(bounds.get("width_godot", 20.0))
-		depth = float(bounds.get("height_godot", 20.0))
+		width = bounds.get("width_godot", 0.0)
+		depth = bounds.get("height_godot", 0.0)
 		center = Vector3.ZERO
 	else:
 		var min_x := INF
@@ -135,12 +126,12 @@ func _create_water_mesh(points: Array, scale: float, world_config: Dictionary) -
 			min_z = min(min_z, coords.z)
 			max_z = max(max_z, coords.z)
 
-		width = max(max_x - min_x, 0.1)
-		depth = max(max_z - min_z, 0.1)
+		width = max_x - min_x
+		depth = max_z - min_z
 		center = Vector3(min_x + width * 0.5, 0.0, min_z + depth * 0.5)
 
-	last_center = center
-	last_size = Vector2(width, depth)
+	if width <= 0.0 or depth <= 0.0:
+		return
 
 	var plane_mesh := PlaneMesh.new()
 	plane_mesh.size = Vector2(width, depth)
@@ -220,9 +211,3 @@ func _create_fallback_structure() -> Node3D:
 
 	root.add_child(mesh_instance)
 	return root
-
-func get_last_center() -> Vector3:
-	return last_center
-
-func get_last_size() -> Vector2:
-	return last_size
