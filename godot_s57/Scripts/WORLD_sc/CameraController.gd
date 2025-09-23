@@ -20,28 +20,20 @@ func _input(event):
 			is_mouse_captured = !is_mouse_captured
 			if is_mouse_captured:
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-				print("Mouse captured - WASD to move, mouse to look around")
 			else:
 				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-				print("Mouse released")
 	
 	# Mouse scroll for altitude
 	if Input.is_action_just_pressed("move_up"):
 		camera.position.y += zoom_speed
-		print("Camera altitude: ", camera.position.y)
 	elif Input.is_action_just_pressed("move_down"):
 		camera.position.y -= zoom_speed
-		# Prevent going below sea level
 		camera.position.y = max(camera.position.y, 5.0)
-		print("Camera altitude: ", camera.position.y)
 	
 	# Mouse look (when captured)
 	if event is InputEventMouseMotion and is_mouse_captured:
-		# Rotate around Y axis (yaw)
 		camera.rotation_degrees.y -= event.relative.x * mouse_sensitivity * 0.1
-		# Rotate around X axis (pitch)
 		camera.rotation_degrees.x -= event.relative.y * mouse_sensitivity * 0.1
-		# Clamp pitch
 		camera.rotation_degrees.x = clamp(camera.rotation_degrees.x, -80, 80)
 
 func _physics_process(delta):
@@ -69,7 +61,6 @@ func _physics_process(delta):
 	if input_vector != Vector2.ZERO:
 		input_vector = input_vector.normalized()
 		
-		# Get camera's forward and right vectors (Y component removed for horizontal movement)
 		var forward = -camera.transform.basis.z
 		forward.y = 0
 		forward = forward.normalized()
@@ -78,6 +69,5 @@ func _physics_process(delta):
 		right.y = 0
 		right = right.normalized()
 		
-		# Calculate movement direction
 		var movement = (right * input_vector.x + forward * input_vector.y) * current_speed * delta
 		camera.position += movement
