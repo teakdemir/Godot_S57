@@ -4,11 +4,11 @@ extends Node
 
 # Static scale calculation
 static func calculate_optimal_scale(seaare_area_km2: float) -> int:
-	if seaare_area_km2 < 100:
+	if seaare_area_km2 < 100.0:
 		return 500    # Coastal Detail
-	elif seaare_area_km2 < 1000:
-		return 1000   # Approach Chart  
-	elif seaare_area_km2 < 10000:
+	elif seaare_area_km2 < 1000.0:
+		return 1000   # Approach Chart
+	elif seaare_area_km2 < 10000.0:
 		return 2000   # Regional Chart
 	else:
 		return 5000   # General Chart
@@ -39,16 +39,15 @@ static func api_to_godot_coordinates(api_coords: Dictionary, scale: float) -> Ve
 static func calculate_godot_bounds(world_config: Dictionary, scale: float) -> Dictionary:
 	var coordinate_system = world_config.get("coordinate_system", {})
 	var bounds = coordinate_system.get("bounds", {})
-	
+
 	var min_lat = bounds.get("min_lat", 0.0)
 	var max_lat = bounds.get("max_lat", 0.0)
 	var min_lon = bounds.get("min_lon", 0.0)
 	var max_lon = bounds.get("max_lon", 0.0)
-	
-	# Convert to approximate meters then scale for Godot
+
 	var lat_range_m = (max_lat - min_lat) * 111320.0
 	var lon_range_m = (max_lon - min_lon) * 111320.0
-	
+
 	return {
 		"width_godot": lon_range_m / scale,
 		"height_godot": lat_range_m / scale,
