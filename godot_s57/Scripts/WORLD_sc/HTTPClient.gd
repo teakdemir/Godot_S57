@@ -1,4 +1,4 @@
-# res://scripts/WORLD_sc/HTTPClient.gd - FIXED
+# res://scripts/WORLD_sc/HTTPClient.gd
 class_name S57HTTPClient
 extends Node
 
@@ -20,6 +20,10 @@ func get_maps_list():
 	print("Getting maps list...")
 	http_request.request("http://localhost:8000/api/maps")
 
+func request_map_export(url: String):
+	print("Requesting map export: " + url)
+	http_request.request(url)
+
 func _on_request_completed(_result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	print("Response code: " + str(response_code))
 	
@@ -29,11 +33,11 @@ func _on_request_completed(_result: int, response_code: int, _headers: PackedStr
 		
 		if parse_result == OK:
 			var data = json.get_data()
-			print("✅ API Response: ", data)
+			print("API Response received")
 			request_completed.emit(data)
 		else:
-			print("❌ JSON Parse failed")
+			print("JSON Parse failed")
 			request_failed.emit("JSON parse error")
 	else:
-		print("❌ HTTP Error: " + str(response_code))
+		print("HTTP Error: " + str(response_code))
 		request_failed.emit("HTTP " + str(response_code))

@@ -5,6 +5,10 @@ var http_client: S57HTTPClient
 var ui_canvas: CanvasLayer
 var ui: Control
 
+# Current map data
+var current_map_data: Dictionary = {}
+var current_scale: int = 1000
+
 func _ready():
 	print("S-57 Maritime Visualization Starting...")
 	
@@ -61,12 +65,58 @@ func _on_refresh_maps():
 	print("Refreshing maps list...")
 	load_maps_list()
 
-func load_map_export(_map_id: int):
-	print("Map export loading will be implemented in Step 3...")
-	ui.show_loading_status("Map loading coming in Step 3...")
+func load_map_export(map_id: int):
+	print("Loading map export for ID: " + str(map_id))
+	ui.show_loading_status("Fetching map data from API...")
+	
+	# API export endpoint'ine request gönder
+	var export_url = "http://localhost:8000/api/maps/" + str(map_id) + "/export"
+	http_client.request_map_export(export_url)
 
-func process_map_data(_data: Dictionary):
-	print("Map processing will be implemented in Step 3...")
+func process_map_data(data: Dictionary):
+	print("Processing map export data...")
+	
+	# Store current map data
+	current_map_data = data
+	
+	# Extract world config
+	var world_config = data.get("world_config", {})
+	var coordinate_system = world_config.get("coordinate_system", {})
+	
+	# Calculate optimal scale
+	var area_km2 = coordinate_system.get("area_km2", 0.0)
+	current_scale = MapManager.calculate_optimal_scale(area_km2)
+	
+	print("Map area: " + str(area_km2) + " km²")
+	print("Optimal scale: " + MapManager.get_scale_info(current_scale))
+	
+	# Calculate map bounds in Godot units
+	var godot_bounds = MapManager.calculate_godot_bounds(world_config, current_scale)
+	
+	print("Godot map size: " + str(godot_bounds.width_godot) + "x" + str(godot_bounds.height_godot) + " units")
+	
+	# Extract terrain data
+	var terrain = data.get("terrain", {})
+	var seaare_polygon = terrain.get("seaare_polygon", [])
+	var coastline_points = terrain.get("coastline_points", [])
+	
+	print("SEAARE points: " + str(seaare_polygon.size()))
+	print("Coastline points: " + str(coastline_points.size()))
+	
+	# Extract navigation objects
+	var nav_objects = data.get("navigation_objects", {})
+	var structures = nav_objects.get("structures", [])
+	
+	print("Harbor structures: " + str(structures.size()))
+	
+	# Update UI with processed info
+	ui.show_loading_status("Scale: " + MapManager.get_scale_info(current_scale))
+	ui.show_loading_status("Map size: " + str(int(godot_bounds.width_godot)) + "x" + str(int(godot_bounds.height_godot)) + " units")
+	ui.show_loading_status("SEAARE: " + str(seaare_polygon.size()) + " points")
+	ui.show_loading_status("Harbors: " + str(structures.size()) + " structures")
+	ui.show_loading_status("Ready for 3D terrain generation!")
+	
+	# Next: Step 4 will generate 3D terrain from this data
 
 func _input(event):
 	if event.is_action_pressed("ui_accept"):

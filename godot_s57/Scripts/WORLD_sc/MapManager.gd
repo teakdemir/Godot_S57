@@ -1,40 +1,56 @@
-class_name HTTPClient
+# res://scripts/WORLD_sc/MapManager.gd
+class_name MapManager
 extends Node
 
-signal request_completed(data: Dictionary)
-signal request_failed(error: String)
-
-var http_request: HTTPRequest
-
-func _ready():
-	http_request = HTTPRequest.new()
-	add_child(http_request)
-	http_request.request_completed.connect(_on_request_completed)
-
-func test_connection():
-	"""Sadece API'ye bağlanabilir miyiz test et"""
-	print("Testing API connection...")
-	http_request.request("http://localhost:8000/health")
-
-func get_maps_list():
-	"""Map listesini getir"""
-	print("Getting maps list...")
-	http_request.request("http://localhost:8000/api/maps")
-
-func _on_request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray):
-	printf("Response code: {response_code}")
-	
-	if response_code == 200:
-		var json = JSON.new()
-		var parse_result = json.parse(body.get_string_from_utf8())
-		
-		if parse_result == OK:
-			var data = json.get_data()
-			print("✅ API Response: ", data)
-			request_completed.emit(data)
-		else:
-			print("❌ JSON Parse failed")
-			request_failed.emit("JSON parse error")
+# Static scale calculation
+static func calculate_optimal_scale(seaare_area_km2: float) -> int:
+	if seaare_area_km2 < 100:
+		return 500    # Coastal Detail
+	elif seaare_area_km2 < 1000:
+		return 1000   # Approach Chart  
+	elif seaare_area_km2 < 10000:
+		return 2000   # Regional Chart
 	else:
-		print("❌ HTTP Error: ", response_code)
-		request_failed.emitf("HTTP {response_code}")
+		return 5000   # General Chart
+
+# Static scale info text
+static func get_scale_info(scale: int) -> String:
+	match scale:
+		500:
+			return "1:500 (Coastal Detail)"
+		1000:
+			return "1:1000 (Approach Chart)"
+		2000:
+			return "1:2000 (Regional Chart)"
+		5000:
+			return "1:5000 (General Chart)"
+		_:
+			return "1:" + str(scale) + " (Custom)"
+
+# Convert API coordinates to Godot coordinates
+static func api_to_godot_coordinates(api_coords: Dictionary, scale: float) -> Vector3:
+	return Vector3(
+		api_coords.get("x", 0.0) / scale,
+		api_coords.get("y", 0.0) / scale,
+		api_coords.get("z", 0.0) / scale
+	)
+
+# Calculate map bounds in Godot units
+static func calculate_godot_bounds(world_config: Dictionary, scale: float) -> Dictionary:
+	var coordinate_system = world_config.get("coordinate_system", {})
+	var bounds = coordinate_system.get("bounds", {})
+	
+	var min_lat = bounds.get("min_lat", 0.0)
+	var max_lat = bounds.get("max_lat", 0.0)
+	var min_lon = bounds.get("min_lon", 0.0)
+	var max_lon = bounds.get("max_lon", 0.0)
+	
+	# Convert to approximate meters then scale for Godot
+	var lat_range_m = (max_lat - min_lat) * 111320.0
+	var lon_range_m = (max_lon - min_lon) * 111320.0
+	
+	return {
+		"width_godot": lon_range_m / scale,
+		"height_godot": lat_range_m / scale,
+		"area_km2": coordinate_system.get("area_km2", 0.0)
+	}
