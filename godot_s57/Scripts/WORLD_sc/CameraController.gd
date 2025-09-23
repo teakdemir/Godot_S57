@@ -3,9 +3,9 @@ class_name CameraController
 extends Node
 
 @export var camera: Camera3D
-@export var move_speed: float = 50.0
+@export var move_speed: float = 100.0
 @export var mouse_sensitivity: float = 2.0
-@export var zoom_speed: float = 10.0
+@export var zoom_speed: float = 20.0
 
 var is_mouse_captured: bool = false
 
@@ -20,16 +20,20 @@ func _input(event):
 			is_mouse_captured = !is_mouse_captured
 			if is_mouse_captured:
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+				print("Mouse captured - WASD to move, mouse to look around")
 			else:
 				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+				print("Mouse released")
 	
-	# Mouse scroll for altitude (using input map)
+	# Mouse scroll for altitude
 	if Input.is_action_just_pressed("move_up"):
 		camera.position.y += zoom_speed
+		print("Camera altitude: ", camera.position.y)
 	elif Input.is_action_just_pressed("move_down"):
 		camera.position.y -= zoom_speed
 		# Prevent going below sea level
 		camera.position.y = max(camera.position.y, 5.0)
+		print("Camera altitude: ", camera.position.y)
 	
 	# Mouse look (when captured)
 	if event is InputEventMouseMotion and is_mouse_captured:

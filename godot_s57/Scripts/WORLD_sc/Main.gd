@@ -1,4 +1,4 @@
-# res://scripts/WORLD_sc/Main.gd - Add UI hiding functionality
+# res://scripts/WORLD_sc/Main.gd
 extends Node3D
 
 var http_client: S57HTTPClient
@@ -46,8 +46,8 @@ func setup_3d_components():
 	# Create camera
 	var camera = Camera3D.new()
 	camera.name = "MainCamera"
-	camera.position = Vector3(0, 100, 200)
-	camera.rotation_degrees = Vector3(-20, 0, 0)
+	camera.position = Vector3(0, 200, 400)
+	camera.rotation_degrees = Vector3(-30, 0, 0)
 	add_child(camera)
 	
 	# Camera controller
@@ -63,8 +63,12 @@ func setup_3d_components():
 	var directional_light = DirectionalLight3D.new()
 	directional_light.name = "Sun"
 	directional_light.position = Vector3(0, 100, 0)
-	directional_light.rotation_degrees = Vector3(-45, -45, 0)
+	directional_light.rotation_degrees = Vector3(-45, -30, 0)
+	directional_light.light_energy = 1.0
 	add_child(directional_light)
+	
+	print("3D components initialized")
+	print("Camera at: ", camera.position)
 
 func load_maps_list():
 	print("Loading maps list...")
@@ -138,7 +142,7 @@ func generate_3d_environment():
 	# Position camera appropriately
 	position_camera_for_map()
 	
-	# HIDE UI AND SHOW 3D SCENE
+	# Hide UI and show 3D scene
 	hide_ui_show_3d()
 
 func position_camera_for_map():
@@ -146,21 +150,26 @@ func position_camera_for_map():
 	if not camera:
 		return
 	
-	# Calculate map center and bounds
 	var terrain = current_map_data.get("terrain", {})
 	var seaare_polygon = terrain.get("seaare_polygon", [])
 	
 	if seaare_polygon.size() > 0:
-		# Calculate center of SEAARE
 		var center = Vector3.ZERO
 		for point in seaare_polygon:
 			var godot_pos = MapManager.api_to_godot_coordinates(point, current_scale)
 			center += Vector3(godot_pos.x, 0, godot_pos.z)
 		center /= seaare_polygon.size()
 		
-		# Position camera above center
-		camera.position = Vector3(center.x, 100, center.z + 200)
+		camera.position = Vector3(center.x, 200, center.z + 400)
 		camera.look_at(center, Vector3.UP)
+		
+		print("DEBUG: Camera positioned at: ", camera.position)
+		print("DEBUG: Looking at center: ", center)
+	else:
+		# Default camera position if no SEAARE data
+		camera.position = Vector3(0, 200, 400)
+		camera.look_at(Vector3.ZERO, Vector3.UP)
+		print("DEBUG: Default camera position used")
 
 func hide_ui_show_3d():
 	print("Switching to 3D view...")
@@ -177,6 +186,7 @@ func hide_ui_show_3d():
 	print("- Right-click: Capture/release mouse")
 	print("- WASD: Move camera")
 	print("- Mouse scroll: Change altitude")
+	print("- Shift: Fast movement")
 	print("- ESC: Return to map selection")
 
 func show_ui_hide_3d():

@@ -14,10 +14,6 @@ config/name="Godot_S57"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
 
-[autoload]
-
-MapSession="*res://Scripts/WORLD_sc/MapSession.gd"
-
 [input]
 
 move_forward={
