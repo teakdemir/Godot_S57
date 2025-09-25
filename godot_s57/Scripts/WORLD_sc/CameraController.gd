@@ -48,9 +48,9 @@ func _physics_process(delta):
 	if Input.is_action_pressed("move_right"):
 		input_vector.x += 1
 	if Input.is_action_pressed("move_forward"):
-		input_vector.y -= 1
-	if Input.is_action_pressed("move_back"):
 		input_vector.y += 1
+	if Input.is_action_pressed("move_back"):
+		input_vector.y -= 1
 	
 	# Fast movement with Shift
 	var current_speed = move_speed
