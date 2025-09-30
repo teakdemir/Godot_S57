@@ -1,0 +1,103 @@
+<?xml version = "1.0"?>  
+<robot name="wall-e" xmlns:xacro="http://ros.org/wiki/xacro">
+
+<xacro:property name="wheel_radius" value="0.033"/>
+<xacro:property name="wheel_separation" value="0.16"/>
+
+<link name = "base_link"> <!--Robotun bir fiziksel parçasını tanımlar (Ana Gövde)-->
+    <visual> <!--Bu etiket, robotun bu parçasının görsel olarak nasıl görüneceğini tanımlar.-->
+        <geometry>  <!--Bu etiket altında, cismin hangi şekilde olduğu belirtilir.-->
+            <box size = "0.2 0.2 0.05"/> <!--Metre cinsinden-->
+        </geometry>
+
+        <origin xyz = "0 0 0.025" rpy = "0 0 0"/> <!--"rpy = roll pitch yaw" -->
+        <material name = "pink">
+            <color rgba="1 0.75 0.8 1"/>
+        </material>
+    </visual>
+    <inertial>
+ 	    <mass value="1.0"/>
+ 	    <origin xyz="0 0 0" rpy="0 0 0"/>
+  	    <inertia
+    	    ixx="0.01" ixy="0.0" ixz="0.0"
+            iyy="0.01" iyz="0.0"
+   	        izz="0.01"/>
+    </inertial>
+
+</link>
+
+<joint name = "left_wheel_joint" type = "continuous"> <!--type="continuous" → Dönme hareketi sağlar (tekerlek gibi)-->
+    <parent link ="base_link"/>
+    <child link = "left_wheel"/>
+    <origin xyz = "0.08 0 0" rpy = "0 0 0"/>
+    <axis xyz = "0 1 0"/>
+</joint>
+
+<link name = "wheel_left_link">
+    <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+            <cylinder length = "0.02" radius = "${wheel_radius}"/>
+        </geometry>
+    </visual>
+    <inertial>
+ 	    <mass value="1.0"/>
+ 	    <origin xyz="0 0 0" rpy="0 0 0"/>
+  	    <inertia
+    	    ixx="0.01" ixy="0.0" ixz="0.0"
+            iyy="0.01" iyz="0.0"
+   	        izz="0.01"/>
+    </inertial>
+</link>
+
+<joint name = "right_wheel_joint" type = "continuous">
+    <parent link = "base_link"/>
+    <child link = "right_wheel"/>
+    <origin xyz = "0 -0.08 0" rpy = "0 0 0"/>
+    <axis xyz = "0 1 0"/>
+</joint>
+
+<link name = "wheel_right_link">
+    <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+            <cylinder length = "0.02" radius = "${wheel_radius}"/>
+        </geometry>
+    </visual>
+    <inertial>
+ 	    <mass value="1.0"/>
+ 	    <origin xyz="0 0 0" rpy="0 0 0"/>
+  	    <inertia
+    	    ixx="0.01" ixy="0.0" ixz="0.0"
+            iyy="0.01" iyz="0.0"
+   	        izz="0.01"/>
+    </inertial>
+</link>
+
+<link name = "lidar_link">
+    <visual>
+        <geometry>
+            <cylinder length = "0.05" radius = "0.03"/>
+        </geometry>
+        <origin xyz = "0 0 0.08" rpy = "0 0 0"/>
+        <material name = "black">
+            <color rgba="0 0 0 1"/>
+        </material>
+    </visual>
+    <inertial>
+ 	    <mass value="1.0"/>
+ 	    <origin xyz="0 0 0" rpy="0 0 0"/>
+  	    <inertia
+    	    ixx="0.01" ixy="0.0" ixz="0.0"
+            iyy="0.01" iyz="0.0"
+   	        izz="0.01"/>
+    </inertial>
+</link>
+
+<joint name = "lidar_joint" type = "fixed"> <!--Joint oluştururken type'ı belirtmek zorundayız.-->
+    <parent link = "base_link"/>
+    <child link = "lidar_link"/>
+    <origin xyz = "0 0 0.08" rpy = "0 0 0"/>
+</joint>
+
+</robot>
