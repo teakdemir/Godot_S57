@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://bslnsm88xxh6q"]
+
+[ext_resource type="Material" uid="uid://bub3ksypdw18o" path="res://Materials/WORLD_mat/BridgeMaterial.tres" id="1_mh78j"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_p0mg7"]
+
+[node name="Bridge" type="MeshInstance3D"]
+transform = Transform3D(2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+material_override = ExtResource("1_mh78j")
+mesh = SubResource("PlaneMesh_p0mg7")

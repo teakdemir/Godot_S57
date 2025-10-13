@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://bgbrph0q7itfv"]
+
+[ext_resource type="Material" uid="uid://diajd7hxipo5g" path="res://Materials/WORLD_mat/LigtshMaterial.tres" id="1_jfbkv"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_84la4"]
+
+[node name="Ligth" type="MeshInstance3D"]
+material_override = ExtResource("1_jfbkv")
+mesh = SubResource("CylinderMesh_84la4")

@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://dr562nif54sya"]
+
+[ext_resource type="Material" uid="uid://7t8r5f3evviw" path="res://Materials/WORLD_mat/HazardsMaterial.tres" id="1_ktrwg"]
+
+[sub_resource type="PrismMesh" id="PrismMesh_2kmso"]
+
+[node name="wreck" type="MeshInstance3D"]
+material_override = ExtResource("1_ktrwg")
+mesh = SubResource("PrismMesh_2kmso")

@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://qcqkl65lb2cy"]
+
+[ext_resource type="Material" uid="uid://7t8r5f3evviw" path="res://Materials/WORLD_mat/HazardsMaterial.tres" id="1_ejljb"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_2kmso"]
+
+[node name="obstrn" type="MeshInstance3D"]
+material_override = ExtResource("1_ejljb")
+mesh = SubResource("BoxMesh_2kmso")

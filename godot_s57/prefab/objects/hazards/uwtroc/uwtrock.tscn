@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://ttbhwotg8g80"]
+
+[ext_resource type="Material" uid="uid://7t8r5f3evviw" path="res://Materials/WORLD_mat/HazardsMaterial.tres" id="1_sq3vd"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_84la4"]
+material = ExtResource("1_sq3vd")
+
+[node name="wrocks" type="MeshInstance3D"]
+material_override = ExtResource("1_sq3vd")
+mesh = SubResource("SphereMesh_84la4")
