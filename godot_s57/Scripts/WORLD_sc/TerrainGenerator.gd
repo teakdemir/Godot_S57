@@ -2,71 +2,100 @@
 class_name TerrainGenerator
 extends Node
 
-# Prefab paths
-const HARBOR_PREFAB = "res://prefab/objects/harbours/harbour.tscn"
+const OBJECT_DEFINITIONS := {
+	"hrbfac": {
+		"prefab": "res://prefab/objects/harbours/harbour.tscn",
+		"material": "res://materials/WORLD_mat/HarborMaterial.tres",
+		"material_node": "harbour",
+		"scale": Vector3(5, 5, 5),
+		"y_offset": 5.0
+	},
+	"slcons": {
+		"prefab": "res://prefab/objects/shoreline/slcons.tscn"
+		
+	},
+	"bridge": {
+		"prefab": "res://prefab/objects/bridges/bridge.tscn"
+	},
+	"lights": {
+		"prefab": "res://prefab/objects/navigation/ligths/ligth.tscn"
+	},
+	"obstrn": {
+		"prefab": "res://prefab/objects/hazards/obstrn/obstrn.tscn"
+	},
+	"uwtroc": {
+		"prefab": "res://prefab/objects/hazards/uwtroc/uwtroc.tscn"
+	},
+	"wrecks": {
+		"prefab": "res://prefab/objects/hazards/wrecks/wreck.tscn"
+	}
+}
 
-# Generate complete 3D environment from map data
+var _prefab_cache: Dictionary = {}
+var _material_cache: Dictionary = {}
+
 func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
-	var environment_root = Node3D.new()
+	var environment_root := Node3D.new()
 	environment_root.name = "MapEnvironment"
-	
-	# Extract data
-	var terrain = map_data.get("terrain", {})
-	var seaare_polygon = terrain.get("seaare_polygon", [])
-	var nav_objects = map_data.get("navigation_objects", {})
-	var harbors = nav_objects.get("structures", [])
-	
+
+	var terrain: Dictionary = map_data.get("terrain", {}) as Dictionary
+	var seaare_polygon: Array = []
+	if terrain:
+		var seaare_variant = terrain.get("seaare_polygon", [])
+		if seaare_variant is Array:
+			seaare_polygon = seaare_variant
+
+	var nav_objects: Dictionary = map_data.get("navigation_objects", {}) as Dictionary
+
+	var total_objects := 0
+	if nav_objects:
+		for category_value in nav_objects.values():
+			var category_objects: Array = category_value as Array
+			if category_objects:
+				total_objects += category_objects.size()
+
 	print("Generating 3D environment:")
 	print("- SEAARE points: " + str(seaare_polygon.size()))
-	print("- Harbor count: " + str(harbors.size()))
+	print("- Navigation object count: " + str(total_objects))
 	print("- Scale: 1:" + str(scale))
-	
-	# Generate sea surface
-	var sea_surface = generate_sea_surface(seaare_polygon, scale)
+
+	var sea_surface := generate_sea_surface(seaare_polygon, scale)
 	environment_root.add_child(sea_surface)
-	
-	# Generate harbors using prefabs
-	if harbors.size() > 0:
-		var harbors_node = generate_harbors_with_prefabs(harbors, scale)
-		environment_root.add_child(harbors_node)
-	
+
+	var navigation_root := generate_navigation_objects(nav_objects, scale)
+	if navigation_root:
+		environment_root.add_child(navigation_root)
+
 	return environment_root
 
-# Generate sea surface from SEAARE polygon
 func generate_sea_surface(seaare_polygon: Array, scale: int) -> MeshInstance3D:
-	var mesh_instance = MeshInstance3D.new()
+	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = "SeaSurface"
 	
-	# Convert API coordinates to Godot coordinates
-	var vertices = PackedVector3Array()
+	var vertices := PackedVector3Array()
 	for point in seaare_polygon:
-		var godot_pos = MapManager.api_to_godot_coordinates(point, scale)
+		var godot_pos := MapManager.api_to_godot_coordinates(point, scale)
 		vertices.append(Vector3(godot_pos.x, 0.0, godot_pos.z))
 	
-	# Calculate bounds size
-	var bounds_size = 0.0
+	var bounds_size := 0.0
 	if vertices.size() >= 2:
 		bounds_size = vertices[0].distance_to(vertices[2]) if vertices.size() >= 4 else vertices[0].distance_to(vertices[1])
 	
-	# Create mesh arrays
-	var arrays = []
+	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	
-	# Only create default sea if the calculated bounds are too small
 	if bounds_size < 50.0 or vertices.size() != 4:
 		print("Creating scaled default sea surface")
-		# Create sea surface proportional to scale
-		var sea_size = scale * 0.5
+		var sea_size := scale * 0.5
 		vertices = PackedVector3Array([
 			Vector3(-sea_size, 0, -sea_size),
-			Vector3(sea_size, 0, -sea_size), 
+			Vector3(sea_size, 0, -sea_size),
 			Vector3(sea_size, 0, sea_size),
 			Vector3(-sea_size, 0, sea_size)
 		])
 	
-	# Create triangles from quad
-	var indices = PackedInt32Array([0, 1, 2, 0, 2, 3])
-	var uvs = PackedVector2Array([
+	var indices := PackedInt32Array([0, 1, 2, 0, 2, 3])
+	var uvs := PackedVector2Array([
 		Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)
 	])
 	
@@ -74,23 +103,20 @@ func generate_sea_surface(seaare_polygon: Array, scale: int) -> MeshInstance3D:
 	arrays[Mesh.ARRAY_INDEX] = indices
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	
-	# Calculate normals
-	var normals = PackedVector3Array()
+	var normals := PackedVector3Array()
 	for i in vertices.size():
 		normals.append(Vector3.UP)
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	
-	# Create and apply mesh
-	var array_mesh = ArrayMesh.new()
+	var array_mesh := ArrayMesh.new()
 	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	mesh_instance.mesh = array_mesh
 	
-	# Apply sea material
-	var sea_material = load("res://materials/WORLD_mat/SeaMaterial.tres")
+	var sea_material := load("res://materials/WORLD_mat/SeaMaterial.tres")
 	if sea_material:
 		mesh_instance.material_override = sea_material
 	else:
-		var material = StandardMaterial3D.new()
+		var material := StandardMaterial3D.new()
 		material.albedo_color = Color("#1a4d80")
 		material.metallic = 0.2
 		material.roughness = 0.1
@@ -99,103 +125,132 @@ func generate_sea_surface(seaare_polygon: Array, scale: int) -> MeshInstance3D:
 	print("Sea surface created with ", vertices.size(), " vertices")
 	return mesh_instance
 
-# Generate harbors using prefab system
-func generate_harbors_with_prefabs(harbors: Array, scale: int) -> Node3D:
-	var harbors_parent = Node3D.new()
-	harbors_parent.name = "Harbors"
-	
-	# Load harbor prefab
-	var harbor_prefab = load(HARBOR_PREFAB)
-	if not harbor_prefab:
-		print("Warning: Harbor prefab not found, creating basic harbors")
-		return generate_basic_harbors(harbors, scale)
-	
-	for i in range(harbors.size()):
-		var harbor_data = harbors[i]
-		var harbor_instance = create_harbor_from_prefab(harbor_prefab, harbor_data, scale, i)
-		if harbor_instance:
-			harbors_parent.add_child(harbor_instance)
-	
-	print("Harbors created: " + str(harbors.size()) + " prefab instances")
-	return harbors_parent
+func generate_navigation_objects(nav_objects: Dictionary, scale: int) -> Node3D:
+	var root := Node3D.new()
+	root.name = "NavigationObjects"
 
-# Create harbor instance from prefab
-func create_harbor_from_prefab(prefab: PackedScene, harbor_data: Dictionary, scale: int, index: int) -> Node3D:
-	var harbor_instance = prefab.instantiate()
-	if not harbor_instance:
+	var placed := 0
+	if nav_objects:
+		for category in nav_objects.keys():
+			var objects: Array = nav_objects.get(category, []) as Array
+			if objects and objects.size() > 0:
+				var category_node := Node3D.new()
+				category_node.name = category.capitalize()
+
+				for obj_data_variant in objects:
+					var obj_data: Dictionary = obj_data_variant as Dictionary
+					if not obj_data or obj_data.is_empty():
+						continue
+					var instance := instantiate_navigation_object(obj_data, scale)
+					if instance:
+						category_node.add_child(instance)
+						placed += 1
+
+				if category_node.get_child_count() > 0:
+					root.add_child(category_node)
+
+	if placed == 0:
+		return null
+
+	print("- Navigation objects spawned: " + str(placed))
+	return root
+
+func instantiate_navigation_object(obj_data: Dictionary, scale: int) -> Node3D:
+	var obj_type := String(obj_data.get("type", "")).strip_edges().to_lower()
+	if obj_type.is_empty():
 		return null
 	
-	harbor_instance.name = "Harbor_" + str(index)
+	var definition: Dictionary = OBJECT_DEFINITIONS.get(obj_type, {})
+	var instance: Node3D = null
 	
-	var position = harbor_data.get("position", {})
-	if position.is_empty():
+	if not definition.is_empty():
+		var prefab_path := String(definition.get("prefab", ""))
+		var prefab := _load_prefab(prefab_path)
+		if prefab:
+			instance = prefab.instantiate()
+	
+	if instance == null:
+		instance = _create_default_marker(obj_type)
+	
+	if instance == null:
 		return null
 	
-	var godot_pos = MapManager.api_to_godot_coordinates(position, scale)
+	instance.name = obj_data.get("id", obj_type.capitalize())
 	
-	# Set position and scale
-	harbor_instance.position = Vector3(godot_pos.x, 5, godot_pos.z)
-	harbor_instance.scale = Vector3(5, 5, 5)  # Reasonable scale
+	var position_dict: Dictionary = obj_data.get("position", {}) as Dictionary
+	if not position_dict or position_dict.is_empty():
+		return null
 	
-	# Apply material to harbor mesh if found
-	var mesh_node = harbor_instance.find_child("harbour")
-	if mesh_node and mesh_node is MeshInstance3D:
-		var harbor_material = load("res://materials/WORLD_mat/HarborMaterial.tres")
-		if harbor_material:
-			mesh_node.material_override = harbor_material
+	var horizontal: Vector3 = MapManager.api_to_godot_coordinates(position_dict, scale)
+	var y_value := float(position_dict.get("y", 0.0))
+	var y_offset := 0.0
+	if not definition.is_empty() and definition.has("y_offset"):
+		y_offset = float(definition["y_offset"])
+	
+	instance.position = Vector3(horizontal.x, y_value + y_offset, horizontal.z)
+	
+	if not definition.is_empty() and definition.has("scale"):
+		instance.scale = definition["scale"]
+	
+	if not definition.is_empty():
+		_apply_definition_materials(instance, definition)
+	
+	return instance
+
+func _apply_definition_materials(instance: Node3D, definition: Dictionary) -> void:
+	if not definition.has("material"):
+		return
+	
+	var target: Node = instance
+	var material_node := String(definition.get("material_node", ""))
+	if not material_node.is_empty():
+		if instance.has_node(material_node):
+			target = instance.get_node(material_node)
 		else:
-			var material = StandardMaterial3D.new()
-			material.albedo_color = Color("#8b4513")
-			material.roughness = 0.8
-			mesh_node.material_override = material
+			var found := instance.find_child(material_node, true, false)
+			if found:
+				target = found
 	
-	return harbor_instance
+	if target and target is MeshInstance3D:
+		var material := _load_material(String(definition["material"]))
+		if material:
+			(target as MeshInstance3D).material_override = material
 
-# Fallback: Generate basic harbors if prefab fails
-func generate_basic_harbors(harbors: Array, scale: int) -> Node3D:
-	var harbors_parent = Node3D.new()
-	harbors_parent.name = "BasicHarbors"
+func _create_default_marker(obj_type: String) -> MeshInstance3D:
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = obj_type.capitalize() + "_Marker"
 	
-	for i in range(harbors.size()):
-		var harbor_data = harbors[i]
-		var harbor_node = create_basic_harbor(harbor_data, scale, i)
-		if harbor_node:
-			harbors_parent.add_child(harbor_node)
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 1.0
+	mesh.bottom_radius = 1.0
+	mesh.height = 4.0
+	mesh_instance.mesh = mesh
 	
-	print("Basic harbors created: " + str(harbors.size()) + " objects")
-	return harbors_parent
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.9, 0.4, 0.7)
+	mesh_instance.material_override = material
+	
+	return mesh_instance
 
-# Create basic harbor object
-func create_basic_harbor(harbor_data: Dictionary, scale: int, index: int) -> Node3D:
-	var harbor_group = Node3D.new()
-	harbor_group.name = "Harbor_" + str(index)
-	
-	var position = harbor_data.get("position", {})
-	if position.is_empty():
+func _load_prefab(path: String) -> PackedScene:
+	if path.is_empty():
 		return null
-	
-	var godot_pos = MapManager.api_to_godot_coordinates(position, scale)
-	
-	# Create harbor mesh (box)
-	var mesh_instance = MeshInstance3D.new()
-	mesh_instance.name = "harbour"
-	
-	var box_mesh = BoxMesh.new()
-	box_mesh.size = Vector3(20, 10, 20)  # Harbor building
-	mesh_instance.mesh = box_mesh
-	
-	# Apply material
-	var harbor_material = load("res://materials/WORLD_mat/HarborMaterial.tres")
-	if harbor_material:
-		mesh_instance.material_override = harbor_material
-	else:
-		var material = StandardMaterial3D.new()
-		material.albedo_color = Color("#8b4513")
-		material.roughness = 0.8
-		mesh_instance.material_override = material
-	
-	mesh_instance.position = Vector3(0, 5, 0)
-	harbor_group.add_child(mesh_instance)
-	harbor_group.position = Vector3(godot_pos.x, 5, godot_pos.z)
-	
-	return harbor_group
+	if not _prefab_cache.has(path):
+		if not ResourceLoader.exists(path):
+			print("Prefab not found: " + path)
+			_prefab_cache[path] = null
+		else:
+			var resource := load(path)
+			if resource and resource is PackedScene:
+				_prefab_cache[path] = resource
+			else:
+				print("Failed to load prefab: " + path)
+				_prefab_cache[path] = null
+	return _prefab_cache[path]
+
+func _load_material(path: String) -> Material:
+	if path.is_empty():
+		return null
+	if not _material_cache.has(path):
+		_material_cache[path] = load(path)
+	return _material_cache[path]

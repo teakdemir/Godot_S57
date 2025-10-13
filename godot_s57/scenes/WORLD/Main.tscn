@@ -1,13 +1,6 @@
-[gd_scene load_steps=4 format=3 uid="uid://cemda8ge6bx7x"]
+[gd_scene load_steps=2 format=3 uid="uid://cemda8ge6bx7x"]
 
 [ext_resource type="Script" uid="uid://b6hqx1wdgfabn" path="res://Scripts/WORLD_sc/Main.gd" id="1_p0mg7"]
-[ext_resource type="Material" uid="uid://diajd7hxipo5g" path="res://Materials/WORLD_mat/LigtshMaterial.tres" id="2_2kmso"]
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_84la4"]
 
 [node name="Main_tscn" type="Node3D"]
 script = ExtResource("1_p0mg7")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-material_override = ExtResource("2_2kmso")
-mesh = SubResource("CylinderMesh_84la4")

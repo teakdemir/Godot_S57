@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://betg1lingijru"]
+
+[ext_resource type="Material" uid="uid://bub3ksypdw18o" path="res://Materials/WORLD_mat/BridgeMaterial.tres" id="1_tgb75"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_2kmso"]
+
+[node name="SLCONS" type="MeshInstance3D"]
+material_override = ExtResource("1_tgb75")
+mesh = SubResource("CapsuleMesh_2kmso")
