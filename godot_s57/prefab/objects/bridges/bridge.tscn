@@ -5,6 +5,6 @@
 [sub_resource type="PlaneMesh" id="PlaneMesh_p0mg7"]
 
 [node name="Bridge" type="MeshInstance3D"]
-transform = Transform3D(2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 material_override = ExtResource("1_mh78j")
 mesh = SubResource("PlaneMesh_p0mg7")

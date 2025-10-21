@@ -5,5 +5,6 @@
 [sub_resource type="CylinderMesh" id="CylinderMesh_84la4"]
 
 [node name="Ligth" type="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0)
 material_override = ExtResource("1_jfbkv")
 mesh = SubResource("CylinderMesh_84la4")
