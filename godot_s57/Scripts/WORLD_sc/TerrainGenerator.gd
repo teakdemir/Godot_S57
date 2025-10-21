@@ -9,6 +9,8 @@ const COASTLINE_MATERIAL := "res://Materials/WORLD_mat/CoastlineMaterial.tres"
 const COASTLINE_Y_OFFSET := 0.05
 const MAX_POINTS_PER_COASTLINE_MESH := 512
 const COASTLINE_HALF_WIDTH := 0.8
+const LAND_MATERIAL := "res://Materials/WORLD_mat/LandMaterial.tres"
+const LAND_Y_OFFSET := 0.03
 
 const OBJECT_DEFINITIONS := {
 	"hrbfac": {
@@ -63,6 +65,11 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 		var coastline_variant = terrain.get("coastlines", [])
 		if coastline_variant is Array:
 			coastline_data = coastline_variant
+	var land_polygons_data: Array = []
+	if terrain:
+		var land_variant = terrain.get("land_polygons", [])
+		if land_variant is Array:
+			land_polygons_data = land_variant
 
 	var total_objects := 0
 	if nav_objects:
@@ -77,11 +84,15 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 			var segments_variant = coastline_dict.get("segments", [])
 			if segments_variant is Array:
 				total_coastline_segments += segments_variant.size()
+	var total_land_polygons := 0
+	if land_polygons_data:
+		total_land_polygons = land_polygons_data.size()
 
 	print("Generating 3D environment:")
 	print("- SEAARE points: " + str(seaare_polygon.size()))
 	print("- Navigation object count: " + str(total_objects))
 	print("- Coastline segment groups: " + str(total_coastline_segments))
+	print("- Land polygons: " + str(total_land_polygons))
 	print("- Scale: 1:" + str(scale))
 
 	var sea_surface := generate_sea_surface(seaare_polygon, scale)
@@ -90,6 +101,10 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	var sea_floor := generate_seafloor(depth_areas, seaare_polygon, scale)
 	if sea_floor:
 		environment_root.add_child(sea_floor)
+
+	var land_root := generate_landmasses(land_polygons_data, scale)
+	if land_root:
+		environment_root.add_child(land_root)
 
 	var coastline_root := generate_coastlines(coastline_data, scale)
 	if coastline_root:
@@ -252,6 +267,38 @@ func generate_seafloor(depth_areas: Array, seaare_polygon: Array, scale: int) ->
 
 	return mesh_instance
 
+func generate_landmasses(land_polygons: Array, scale: int) -> Node3D:
+	if land_polygons.is_empty():
+		return null
+
+	var land_root := Node3D.new()
+	land_root.name = "Landmasses"
+
+	var land_material := _load_material(LAND_MATERIAL)
+	var created_meshes := 0
+
+	for land_variant in land_polygons:
+		var land_dict: Dictionary = land_variant as Dictionary
+		if land_dict.is_empty():
+			continue
+
+		var polygons_variant = land_dict.get("polygons", [])
+		if not (polygons_variant is Array):
+			continue
+
+		var polygons: Array = polygons_variant
+		for polygon_variant in polygons:
+			if not (polygon_variant is Array):
+				continue
+			var polygon_points: Array = polygon_variant
+			var mesh_instance := _create_land_polygon_mesh(polygon_points, scale, land_material)
+			if mesh_instance:
+				mesh_instance.name = "LandPolygon_%d" % created_meshes
+				land_root.add_child(mesh_instance)
+				created_meshes += 1
+
+	return land_root if created_meshes > 0 else null
+
 func generate_coastlines(coastlines: Array, scale: int) -> Node3D:
 	if coastlines.is_empty():
 		return null
@@ -369,6 +416,57 @@ func _create_coastline_mesh(points: Array, scale: int, coastline_material: Mater
 	if coastline_material:
 		mesh_instance.material_override = coastline_material
 
+	return mesh_instance
+
+func _create_land_polygon_mesh(polygon_points: Array, scale: int, land_material: Material) -> MeshInstance3D:
+	if polygon_points.size() < 3:
+		return null
+
+	var polygon2d := PackedVector2Array()
+	var vertices3d: Array = []
+
+	for point_variant in polygon_points:
+		var point_dict: Dictionary = point_variant as Dictionary
+		if not point_dict or point_dict.is_empty():
+			continue
+		var godot_pos := MapManager.api_to_godot_coordinates(point_dict, scale)
+		var vertex3d := Vector3(godot_pos.x, LAND_Y_OFFSET, godot_pos.z)
+		polygon2d.append(Vector2(godot_pos.x, godot_pos.z))
+		vertices3d.append(vertex3d)
+
+	if polygon2d.size() < 3:
+		return null
+
+	if polygon2d.size() >= 2 and polygon2d[0].distance_to(polygon2d[polygon2d.size() - 1]) < 0.001:
+		polygon2d.remove_at(polygon2d.size() - 1)
+		vertices3d.pop_back()
+		if polygon2d.size() < 3:
+			return null
+
+	var indices := Geometry2D.triangulate_polygon(polygon2d)
+	if indices.is_empty():
+		return null
+
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	for i in range(0, indices.size(), 3):
+		var idx0: int = indices[i]
+		var idx1: int = indices[i + 1]
+		var idx2: int = indices[i + 2]
+		st.add_vertex(vertices3d[idx0])
+		st.add_vertex(vertices3d[idx1])
+		st.add_vertex(vertices3d[idx2])
+
+	var mesh := st.commit()
+	if mesh == null:
+		return null
+
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.mesh = mesh
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if land_material:
+		mesh_instance.material_override = land_material
 	return mesh_instance
 
 func _calculate_polygon_bounds(points: Array) -> Dictionary:
