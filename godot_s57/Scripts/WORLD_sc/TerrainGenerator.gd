@@ -5,6 +5,11 @@ extends Node
 const SEA_FLOOR_MATERIAL := "res://Materials/WORLD_mat/SeaFloorMaterial.tres"
 const SEA_FLOOR_DEPTH_SCALE := 3.0
 
+const COASTLINE_MATERIAL := "res://Materials/WORLD_mat/CoastlineMaterial.tres"
+const COASTLINE_Y_OFFSET := 0.05
+const MAX_POINTS_PER_COASTLINE_MESH := 512
+const COASTLINE_HALF_WIDTH := 0.8
+
 const OBJECT_DEFINITIONS := {
 	"hrbfac": {
 		"prefab": "res://prefab/objects/harbours/harbour.tscn",
@@ -53,6 +58,11 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 		var depth_variant = terrain.get("depth_areas", [])
 		if depth_variant is Array:
 			depth_areas = depth_variant
+	var coastline_data: Array = []
+	if terrain:
+		var coastline_variant = terrain.get("coastlines", [])
+		if coastline_variant is Array:
+			coastline_data = coastline_variant
 
 	var total_objects := 0
 	if nav_objects:
@@ -60,10 +70,18 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 			var category_objects: Array = category_value as Array
 			if category_objects:
 				total_objects += category_objects.size()
+	var total_coastline_segments := 0
+	if coastline_data:
+		for coastline_variant in coastline_data:
+			var coastline_dict: Dictionary = coastline_variant as Dictionary
+			var segments_variant = coastline_dict.get("segments", [])
+			if segments_variant is Array:
+				total_coastline_segments += segments_variant.size()
 
 	print("Generating 3D environment:")
 	print("- SEAARE points: " + str(seaare_polygon.size()))
 	print("- Navigation object count: " + str(total_objects))
+	print("- Coastline segment groups: " + str(total_coastline_segments))
 	print("- Scale: 1:" + str(scale))
 
 	var sea_surface := generate_sea_surface(seaare_polygon, scale)
@@ -72,6 +90,10 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	var sea_floor := generate_seafloor(depth_areas, seaare_polygon, scale)
 	if sea_floor:
 		environment_root.add_child(sea_floor)
+
+	var coastline_root := generate_coastlines(coastline_data, scale)
+	if coastline_root:
+		environment_root.add_child(coastline_root)
 
 	var navigation_root := generate_navigation_objects(nav_objects, scale)
 	if navigation_root:
@@ -227,6 +249,125 @@ func generate_seafloor(depth_areas: Array, seaare_polygon: Array, scale: int) ->
 	var sea_floor_material: Material = _load_material(SEA_FLOOR_MATERIAL)
 	if sea_floor_material:
 		mesh_instance.material_override = sea_floor_material
+
+	return mesh_instance
+
+func generate_coastlines(coastlines: Array, scale: int) -> Node3D:
+	if coastlines.is_empty():
+		return null
+
+	var coastline_root := Node3D.new()
+	coastline_root.name = "Coastlines"
+
+	var coastline_material := _load_material(COASTLINE_MATERIAL)
+	var created_segments := 0
+
+	for coastline_variant in coastlines:
+		var coastline: Dictionary = coastline_variant as Dictionary
+		if coastline.is_empty():
+			continue
+
+		var segments_variant = coastline.get("segments", [])
+		if not (segments_variant is Array):
+			continue
+
+		var segments: Array = segments_variant as Array
+		for segment_variant in segments:
+			var segment_points: Array = segment_variant as Array
+			if segment_points.size() < 2:
+				continue
+
+			var start_index := 0
+			while start_index < segment_points.size():
+				var end_index: int = mini(start_index + MAX_POINTS_PER_COASTLINE_MESH, segment_points.size())
+				var chunk: Array = []
+
+				if start_index > 0:
+					chunk.append(segment_points[start_index - 1])
+
+				for idx in range(start_index, end_index):
+					chunk.append(segment_points[idx])
+
+				var mesh_instance := _create_coastline_mesh(chunk, scale, coastline_material)
+				if mesh_instance:
+					mesh_instance.name = "CoastlineSegment_%d" % created_segments
+					if coastline.has("length_km") and coastline["length_km"] != null:
+						mesh_instance.set_meta("length_km", float(coastline["length_km"]))
+					coastline_root.add_child(mesh_instance)
+					created_segments += 1
+
+				if end_index >= segment_points.size():
+					break
+				start_index = end_index - 1
+
+	return coastline_root if created_segments > 0 else null
+
+func _create_coastline_mesh(points: Array, scale: int, coastline_material: Material) -> MeshInstance3D:
+	if points.size() < 2:
+		return null
+
+	var world_points: Array = []
+
+	for point_variant in points:
+		var point: Dictionary = point_variant as Dictionary
+		if not point or point.is_empty():
+			continue
+		var godot_pos := MapManager.api_to_godot_coordinates(point, scale)
+		godot_pos.y = COASTLINE_Y_OFFSET
+		world_points.append(godot_pos)
+
+	if world_points.size() < 2:
+		return null
+
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	var left_points: Array = []
+	var right_points: Array = []
+
+	for idx in range(world_points.size()):
+		var current: Vector3 = world_points[idx]
+		var forward: Vector3
+		if idx == 0:
+			forward = (world_points[idx + 1] - current).normalized()
+		elif idx == world_points.size() - 1:
+			forward = (current - world_points[idx - 1]).normalized()
+		else:
+			var forward_prev: Vector3 = (current - world_points[idx - 1]).normalized()
+			var forward_next: Vector3 = (world_points[idx + 1] - current).normalized()
+			forward = (forward_prev + forward_next).normalized()
+		if forward.length_squared() < 1e-6:
+			forward = Vector3(1, 0, 0)
+		var side := Vector3(forward.z, 0, -forward.x).normalized() * COASTLINE_HALF_WIDTH
+		if side.length_squared() < 1e-6:
+			side = Vector3(0, 0, 1) * COASTLINE_HALF_WIDTH
+		left_points.append(current - side)
+		right_points.append(current + side)
+
+	for idx in range(world_points.size() - 1):
+		var l0: Vector3 = left_points[idx]
+		var r0: Vector3 = right_points[idx]
+		var l1: Vector3 = left_points[idx + 1]
+		var r1: Vector3 = right_points[idx + 1]
+
+		st.add_vertex(l0)
+		st.add_vertex(r0)
+		st.add_vertex(l1)
+
+		st.add_vertex(r0)
+		st.add_vertex(r1)
+		st.add_vertex(l1)
+
+	st.generate_normals()
+	var mesh := st.commit()
+	if mesh == null:
+		return null
+
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.mesh = mesh
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if coastline_material:
+		mesh_instance.material_override = coastline_material
 
 	return mesh_instance
 

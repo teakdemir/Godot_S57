@@ -1,0 +1,10 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://dw6le6pxoafp"]
+
+[resource]
+resource_name = "CoastlineMaterial"
+albedo_color = Color(0.514513, 0.416604, 0.0810889, 1)
+metallic = 0.05
+roughness = 0.35
+emission_enabled = true
+emission = Color(0.266667, 0.266667, 0.266667, 1)
+emission_energy_multiplier = 0.4
