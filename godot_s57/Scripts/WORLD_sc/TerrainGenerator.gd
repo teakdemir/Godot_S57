@@ -566,9 +566,6 @@ func instantiate_navigation_object(obj_data: Dictionary, scale: int) -> Node3D:
 			instance = prefab.instantiate()
 
 	if instance == null:
-		instance = _create_default_marker(obj_type)
-
-	if instance == null:
 		return null
 
 	instance.name = obj_data.get("id", obj_type.capitalize())
