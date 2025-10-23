@@ -1,4 +1,3 @@
-# res://scripts/WORLD_sc/HTTPClient.gd
 class_name S57HTTPClient
 extends Node
 

@@ -1,4 +1,3 @@
-# res://scripts/WORLD_sc/TerrainGenerator.gd
 class_name TerrainGenerator
 extends Node
 

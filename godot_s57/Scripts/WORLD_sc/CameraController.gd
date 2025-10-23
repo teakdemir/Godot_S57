@@ -1,4 +1,3 @@
-# res://scripts/WORLD_sc/CameraController.gd
 class_name CameraController
 extends Node
 

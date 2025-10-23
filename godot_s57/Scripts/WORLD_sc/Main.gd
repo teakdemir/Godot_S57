@@ -1,4 +1,3 @@
-# res://scripts/WORLD_sc/Main.gd
 extends Node3D
 
 var http_client: S57HTTPClient

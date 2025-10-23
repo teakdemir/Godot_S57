@@ -1,4 +1,3 @@
-# res://scripts/WORLD_sc/MapManager.gd
 class_name MapManager
 extends Node
 
