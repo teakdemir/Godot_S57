@@ -2,6 +2,7 @@ class_name TerrainGenerator
 extends Node
 
 const SEA_FLOOR_MATERIAL := "res://Materials/WORLD_mat/SeaFloorMaterial.tres"
+const SEA_SURFACE_MATERIAL := "res://Materials/WORLD_mat/SeaMaterial.tres"
 const SEA_FLOOR_DEPTH_SCALE := 3.0
 
 const COASTLINE_MATERIAL := "res://Materials/WORLD_mat/CoastlineMaterial.tres"
@@ -94,7 +95,7 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	print("- Land polygons: " + str(total_land_polygons))
 	print("- Scale: 1:" + str(scale))
 
-	var sea_surface := generate_sea_surface(seaare_polygon, scale)
+	var sea_surface := generate_sea_surface(seaare_polygon, depth_areas, scale)
 	environment_root.add_child(sea_surface)
 
 	var sea_floor := generate_seafloor(depth_areas, seaare_polygon, scale)
@@ -115,62 +116,141 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 
 	return environment_root
 
-func generate_sea_surface(seaare_polygon: Array, scale: int) -> MeshInstance3D:
+func generate_sea_surface(seaare_polygon: Array, depth_areas: Array, scale: int) -> MeshInstance3D:
 	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
 	mesh_instance.name = "SeaSurface"
 
-	var vertices := PackedVector3Array()
-	for point in seaare_polygon:
-		var godot_pos := MapManager.api_to_godot_coordinates(point, scale)
-		vertices.append(Vector3(godot_pos.x, 0.0, godot_pos.z))
+	var bounds := _calculate_polygon_bounds(seaare_polygon)
+	if bounds.is_empty():
+		var fallback_extent := float(scale) * 0.75
+		bounds = {
+			"min_x": -fallback_extent,
+			"max_x": fallback_extent,
+			"min_z": -fallback_extent,
+			"max_z": fallback_extent
+		}
 
-	var bounds_size := 0.0
-	if vertices.size() >= 2:
-		bounds_size = vertices[0].distance_to(vertices[2]) if vertices.size() >= 4 else vertices[0].distance_to(vertices[1])
+	var width: float = max(bounds.get("max_x", 0.0) - bounds.get("min_x", 0.0), 1.0)
+	var depth_span: float = max(bounds.get("max_z", 0.0) - bounds.get("min_z", 0.0), 1.0)
 
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
+	var resolution_x: int = clamp(int(width * 1.2), 32, 160)
+	var resolution_z: int = clamp(int(depth_span * 1.2), 32, 160)
 
-	if bounds_size < 50.0 or vertices.size() != 4:
-		print("Creating scaled default sea surface")
-		var sea_size := scale * 0.5
-		vertices = PackedVector3Array([
-			Vector3(-sea_size, 0, -sea_size),
-			Vector3(sea_size, 0, -sea_size),
-			Vector3(sea_size, 0, sea_size),
-			Vector3(-sea_size, 0, sea_size)
-		])
+	var step_x: float = width / float(resolution_x)
+	var step_z: float = depth_span / float(resolution_z)
 
-	var indices := PackedInt32Array([0, 1, 2, 0, 2, 3])
-	var uvs := PackedVector2Array([
-		Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)
-	])
+	var samples: Array = []
+	var min_depth := INF
+	var max_depth := -INF
 
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_INDEX] = indices
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	for x_index in range(resolution_x + 1):
+		var row: Array = []
+		for z_index in range(resolution_z + 1):
+			var local_x: float = bounds.get("min_x", 0.0) + step_x * float(x_index)
+			var local_z: float = bounds.get("min_z", 0.0) + step_z * float(z_index)
+			var depth_value: float = abs(_sample_depth_for_point(local_x, local_z, depth_areas))
 
-	var normals := PackedVector3Array()
-	for i in vertices.size():
-		normals.append(Vector3.UP)
-	arrays[Mesh.ARRAY_NORMAL] = normals
+			min_depth = min(min_depth, depth_value)
+			max_depth = max(max_depth, depth_value)
 
-	var array_mesh := ArrayMesh.new()
-	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	mesh_instance.mesh = array_mesh
+			row.append({
+				"pos": Vector2(local_x, local_z),
+				"depth": depth_value
+			})
+		samples.append(row)
 
-	var sea_material := load("res://materials/WORLD_mat/SeaMaterial.tres")
+	if min_depth == INF:
+		min_depth = 0.0
+	if max_depth == -INF:
+		max_depth = 1.0
+
+	var depth_range: float = max(max_depth - min_depth, 0.001)
+
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	for x_index in range(resolution_x):
+		for z_index in range(resolution_z):
+			var v00: Dictionary = samples[x_index][z_index]
+			var v10: Dictionary = samples[x_index + 1][z_index]
+			var v11: Dictionary = samples[x_index + 1][z_index + 1]
+			var v01: Dictionary = samples[x_index][z_index + 1]
+
+			var uv00 := Vector2(float(x_index) / float(resolution_x), float(z_index) / float(resolution_z))
+			var uv10 := Vector2(float(x_index + 1) / float(resolution_x), float(z_index) / float(resolution_z))
+			var uv11 := Vector2(float(x_index + 1) / float(resolution_x), float(z_index + 1) / float(resolution_z))
+			var uv01 := Vector2(float(x_index) / float(resolution_x), float(z_index + 1) / float(resolution_z))
+
+			_add_sea_surface_vertex(st, v00, scale, min_depth, depth_range, uv00)
+			_add_sea_surface_vertex(st, v10, scale, min_depth, depth_range, uv10)
+			_add_sea_surface_vertex(st, v11, scale, min_depth, depth_range, uv11)
+
+			_add_sea_surface_vertex(st, v00, scale, min_depth, depth_range, uv00)
+			_add_sea_surface_vertex(st, v11, scale, min_depth, depth_range, uv11)
+			_add_sea_surface_vertex(st, v01, scale, min_depth, depth_range, uv01)
+
+	st.generate_normals()
+	var mesh: Mesh = st.commit()
+
+	if mesh:
+		mesh_instance.mesh = mesh
+	else:
+		mesh_instance.mesh = _build_fallback_sea_mesh(scale)
+
+	var sea_material: Material = _load_material(SEA_SURFACE_MATERIAL)
 	if sea_material:
 		mesh_instance.material_override = sea_material
-	else:
-		var material := StandardMaterial3D.new()
-		material.albedo_color = Color("#1a4d80")
-		material.metallic = 0.2
-		material.roughness = 0.1
-		mesh_instance.material_override = material
 
-	print("Sea surface created with ", vertices.size(), " vertices")
+	print("Sea surface created with %s vertices (%s x %s grid)" % [
+		(resolution_x + 1) * (resolution_z + 1),
+		resolution_x,
+		resolution_z
+	])
 	return mesh_instance
+
+func _add_sea_surface_vertex(st: SurfaceTool, sample: Dictionary, scale: int, min_depth: float, depth_range: float, uv: Vector2) -> void:
+	var local_pos: Vector2 = sample.get("pos", Vector2.ZERO)
+	var depth_value: float = float(sample.get("depth", 0.0))
+	var normalized_depth: float = clamp((depth_value - min_depth) / depth_range, 0.0, 1.0)
+	var vertex := _sea_surface_vertex(local_pos, scale)
+
+	st.set_uv(uv)
+	st.set_color(Color(normalized_depth, normalized_depth, normalized_depth, normalized_depth))
+	st.add_vertex(vertex)
+
+func _sea_surface_vertex(local_pos: Vector2, scale: int) -> Vector3:
+	var api_coords := {
+		"x": local_pos.x,
+		"y": 0.0,
+		"z": local_pos.y
+	}
+	var converted := MapManager.api_to_godot_coordinates(api_coords, scale)
+	return Vector3(converted.x, 0.0, converted.z)
+
+func _build_fallback_sea_mesh(scale: int) -> Mesh:
+	var extent := float(scale) * 0.75
+
+	var s00 := {"pos": Vector2(-extent, -extent), "depth": 0.0}
+	var s10 := {"pos": Vector2(extent, -extent), "depth": 0.3}
+	var s11 := {"pos": Vector2(extent, extent), "depth": 0.6}
+	var s01 := {"pos": Vector2(-extent, extent), "depth": 0.3}
+
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	var min_depth := 0.0
+	var depth_range := 1.0
+
+	_add_sea_surface_vertex(st, s00, scale, min_depth, depth_range, Vector2(0, 0))
+	_add_sea_surface_vertex(st, s10, scale, min_depth, depth_range, Vector2(1, 0))
+	_add_sea_surface_vertex(st, s11, scale, min_depth, depth_range, Vector2(1, 1))
+
+	_add_sea_surface_vertex(st, s00, scale, min_depth, depth_range, Vector2(0, 0))
+	_add_sea_surface_vertex(st, s11, scale, min_depth, depth_range, Vector2(1, 1))
+	_add_sea_surface_vertex(st, s01, scale, min_depth, depth_range, Vector2(0, 1))
+
+	st.generate_normals()
+	return st.commit()
 
 func generate_navigation_objects(nav_objects: Dictionary, scale: int) -> Node3D:
 	var root := Node3D.new()

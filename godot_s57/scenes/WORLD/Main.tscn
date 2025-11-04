@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://cemda8ge6bx7x"]
 
-[ext_resource type="Script" uid="uid://b6hqx1wdgfabn" path="res://Scripts/WORLD_sc/Main.gd" id="1_p0mg7"]
+[ext_resource type="Script" uid="uid://b6hqx1wdgfabn" path="res://prefab/objects/Main.gd" id="1_p0mg7"]
 
 [node name="Main_tscn" type="Node3D"]
 script = ExtResource("1_p0mg7")

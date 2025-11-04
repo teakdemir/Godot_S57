@@ -1,7 +1,22 @@
-[gd_resource type="StandardMaterial3D" format=3 uid="uid://b2cl8q2vw13j1"]
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://b7tynkvfca183"]
+
+[ext_resource type="Shader" uid="uid://dl6gh34kncs2x" path="res://Materials/WORLD_mat/Sea.gdshader" id="1_fxe2h"]
 
 [resource]
-transparency = 1
-albedo_color = Color(0.101961, 0.580392, 0.788235, 1)
-metallic = 0.2
-roughness = 0.1
+render_priority = 0
+shader = ExtResource("1_fxe2h")
+shader_parameter/shallow_color = Color(0.129, 0.596, 0.776, 1)
+shader_parameter/deep_color = Color(0.015, 0.082, 0.192, 1)
+shader_parameter/depth_power = 1.35
+shader_parameter/wave_amplitude = 0.6
+shader_parameter/wave_length = 65.0
+shader_parameter/wave_speed = 0.6
+shader_parameter/secondary_wave_weight = 0.35
+shader_parameter/choppiness = 0.4
+shader_parameter/foam_strength = 0.25
+shader_parameter/foam_cutoff = 0.35
+shader_parameter/foam_color = Color(0.83, 0.92, 1, 1)
+shader_parameter/fresnel_strength = 0.45
+shader_parameter/fresnel_power = 5.0
+shader_parameter/specular_strength = 0.35
+shader_parameter/roughness = 0.0
