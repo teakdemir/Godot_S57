@@ -5,9 +5,9 @@
 [resource]
 render_priority = 0
 shader = ExtResource("1_fxe2h")
-shader_parameter/shallow_color = Color(0.129, 0.596, 0.776, 1)
-shader_parameter/deep_color = Color(0.015, 0.082, 0.192, 1)
-shader_parameter/depth_power = 1.35
+shader_parameter/shallow_color = Color(0.192614, 0.604649, 0.700365, 1)
+shader_parameter/deep_color = Color(0.0746141, 0.241659, 0.454841, 1)
+shader_parameter/depth_power = 1.5
 shader_parameter/wave_amplitude = 0.6
 shader_parameter/wave_length = 65.0
 shader_parameter/wave_speed = 0.6
