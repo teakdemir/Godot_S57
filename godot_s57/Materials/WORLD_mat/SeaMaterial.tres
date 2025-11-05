@@ -1,32 +1,41 @@
-[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://b7tynkvfca183"]
+[gd_resource type="ShaderMaterial" load_steps=5 format=3 uid="uid://d5ym0fafj3g8"]
 
-[ext_resource type="Shader" uid="uid://dl6gh34kncs2x" path="res://Materials/WORLD_mat/Sea.gdshader" id="1_fxe2h"]
+[ext_resource type="Shader" uid="uid://dl6gh34kncs2x" path="res://Materials/WORLD_mat/Sea.gdshader" id="1"]
+[ext_resource type="Texture2D" uid="uid://dem1p77v02yhp" path="res://Materials/WORLD_mat/water_normal_primary.tres" id="2"]
+[ext_resource type="Texture2D" uid="uid://clx36odro5vej" path="res://Materials/WORLD_mat/water_normal_secondary.tres" id="3"]
+[ext_resource type="Texture2D" uid="uid://6da2iecbj6ho" path="res://Materials/WORLD_mat/water_height_map.tres" id="4"]
 
 [resource]
 render_priority = 0
-shader = ExtResource("1_fxe2h")
-shader_parameter/shallow_color = Color(0.130546, 0.523503, 0.660878, 1)
-shader_parameter/deep_color = Color(0.078433, 0.204787, 0.369121, 1)
+shader = ExtResource("1")
+shader_parameter/shallow_color = Color(0.18, 0.63, 0.79, 1)
+shader_parameter/deep_color = Color(0.05, 0.15, 0.28, 1)
 shader_parameter/depth_power = 1.4
-shader_parameter/wave_amplitude = 0.75
-shader_parameter/wave_length = 60.0
-shader_parameter/wave_speed = 0.7
-shader_parameter/secondary_wave_weight = 0.35
-shader_parameter/tertiary_wave_weight = 0.22
-shader_parameter/tertiary_wave_scale = 0.65
-shader_parameter/choppiness = 0.45
-shader_parameter/foam_strength = 0.28
-shader_parameter/foam_cutoff = 0.32
-shader_parameter/foam_color = Color(0.291924, 0.586338, 0.771327, 1)
-shader_parameter/foam_emission_strength = 0.35
-shader_parameter/fresnel_strength = 0.5
-shader_parameter/fresnel_power = 5.0
-shader_parameter/specular_strength = 0.4
-shader_parameter/roughness = 0.1
-shader_parameter/detail_frequency = 5.5
-shader_parameter/detail_speed = 0.5
-shader_parameter/normal_detail_strength = 0.32
-shader_parameter/reflection_strength = 0.28
-shader_parameter/reflection_tint = Color(0.62, 0.74, 0.85, 1)
-shader_parameter/transparency_shallow = 0.4
-shader_parameter/transparency_deep = 0.2
+shader_parameter/normal_map_a = ExtResource("2")
+shader_parameter/normal_map_b = ExtResource("3")
+shader_parameter/height_map = ExtResource("4")
+shader_parameter/normal_frequency = 0.05
+shader_parameter/normal_direction_a = Vector2(1, 0.25)
+shader_parameter/normal_direction_b = Vector2(-0.45, 1)
+shader_parameter/normal_speed_a = 0.05
+shader_parameter/normal_speed_b = 0.1
+shader_parameter/normal_mix = 0.8
+shader_parameter/normal_detail_strength = 0.5
+shader_parameter/height_frequency = 0.02
+shader_parameter/height_direction = Vector2(0.55, 0.78)
+shader_parameter/height_speed = 0.05
+shader_parameter/height_amplitude = 0.7
+shader_parameter/foam_strength = 0.15
+shader_parameter/foam_bias = 0.12
+shader_parameter/foam_width = 0.45
+shader_parameter/foam_color = Color(0.78, 0.85, 0.92, 1)
+shader_parameter/foam_emission_strength = 0.12
+shader_parameter/fresnel_strength = 0.38
+shader_parameter/fresnel_power = 4.2
+shader_parameter/reflection_tint = Color(0.56, 0.64, 0.74, 1)
+shader_parameter/reflection_strength = 0.2
+shader_parameter/base_roughness = 0.18
+shader_parameter/specular_strength = 0.25
+shader_parameter/transparency_shallow = 0.3
+shader_parameter/transparency_deep = 0.26
+shader_parameter/color_noise_strength = 0.08
