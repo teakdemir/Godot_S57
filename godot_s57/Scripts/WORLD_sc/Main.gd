@@ -145,12 +145,16 @@ func hide_ui_show_3d():
 
 func show_ui_hide_3d():
 	ui_canvas.visible = true
+	camera_controller.set_process(false)
+	camera_controller.set_physics_process(false)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	camera_controller.is_mouse_captured = false
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel"):
-		if not ui_canvas.visible:
+		if ui_canvas.visible:
+			hide_ui_show_3d()
+		else:
 			show_ui_hide_3d()
 		return
 	
