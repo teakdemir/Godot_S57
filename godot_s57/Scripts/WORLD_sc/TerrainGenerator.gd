@@ -9,8 +9,12 @@ const COASTLINE_MATERIAL := "res://Materials/WORLD_mat/CoastlineMaterial.tres"
 const COASTLINE_Y_OFFSET := 0.05
 const MAX_POINTS_PER_COASTLINE_MESH := 512
 const COASTLINE_HALF_WIDTH := 0.8
+const COASTLINE_HEIGHT := 0.45
+const COASTLINE_SEAFLOOR_MARGIN := 0.1
 const LAND_MATERIAL := "res://Materials/WORLD_mat/LandMaterial.tres"
 const LAND_Y_OFFSET := 0.03
+const LAND_EXTRUSION_HEIGHT := 0.8
+const LAND_SEAFLOOR_MARGIN := 0.1
 
 const OBJECT_DEFINITIONS := {
 	"hrbfac": {
@@ -102,11 +106,11 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	if sea_floor:
 		environment_root.add_child(sea_floor)
 
-	var land_root := generate_landmasses(land_polygons_data, scale)
+	var land_root := generate_landmasses(land_polygons_data, depth_areas, scale)
 	if land_root:
 		environment_root.add_child(land_root)
 
-	var coastline_root := generate_coastlines(coastline_data, scale)
+	var coastline_root := generate_coastlines(coastline_data, depth_areas, scale)
 	if coastline_root:
 		environment_root.add_child(coastline_root)
 
@@ -346,7 +350,7 @@ func generate_seafloor(depth_areas: Array, seaare_polygon: Array, scale: int) ->
 
 	return mesh_instance
 
-func generate_landmasses(land_polygons: Array, scale: int) -> Node3D:
+func generate_landmasses(land_polygons: Array, depth_areas: Array, scale: int) -> Node3D:
 	if land_polygons.is_empty():
 		return null
 
@@ -370,7 +374,7 @@ func generate_landmasses(land_polygons: Array, scale: int) -> Node3D:
 			if not (polygon_variant is Array):
 				continue
 			var polygon_points: Array = polygon_variant
-			var mesh_instance := _create_land_polygon_mesh(polygon_points, scale, land_material)
+			var mesh_instance := _create_land_polygon_mesh(polygon_points, depth_areas, scale, land_material)
 			if mesh_instance:
 				mesh_instance.name = "LandPolygon_%d" % created_meshes
 				land_root.add_child(mesh_instance)
@@ -378,7 +382,7 @@ func generate_landmasses(land_polygons: Array, scale: int) -> Node3D:
 
 	return land_root if created_meshes > 0 else null
 
-func generate_coastlines(coastlines: Array, scale: int) -> Node3D:
+func generate_coastlines(coastlines: Array, depth_areas: Array, scale: int) -> Node3D:
 	if coastlines.is_empty():
 		return null
 
@@ -414,13 +418,13 @@ func generate_coastlines(coastlines: Array, scale: int) -> Node3D:
 				for idx in range(start_index, end_index):
 					chunk.append(segment_points[idx])
 
-				var mesh_instance := _create_coastline_mesh(chunk, scale, coastline_material)
+				var mesh_instance := _create_coastline_mesh(chunk, depth_areas, scale, coastline_material)
 				if mesh_instance:
 					mesh_instance.name = "CoastlineSegment_%d" % created_segments
 					if coastline.has("length_km") and coastline["length_km"] != null:
 						mesh_instance.set_meta("length_km", float(coastline["length_km"]))
 					coastline_root.add_child(mesh_instance)
-					created_segments += 1
+					created_segments += 5
 
 				if end_index >= segment_points.size():
 					break
@@ -428,31 +432,47 @@ func generate_coastlines(coastlines: Array, scale: int) -> Node3D:
 
 	return coastline_root if created_segments > 0 else null
 
-func _create_coastline_mesh(points: Array, scale: int, coastline_material: Material) -> MeshInstance3D:
+func _create_coastline_mesh(points: Array, depth_areas: Array, scale: int, coastline_material: Material) -> MeshInstance3D:
 	if points.size() < 2:
 		return null
 
 	var world_points: Array = []
+	var seafloor_points: Array = []
 
 	for point_variant in points:
 		var point: Dictionary = point_variant as Dictionary
 		if not point or point.is_empty():
 			continue
-		var godot_pos := MapManager.api_to_godot_coordinates(point, scale)
+		var local_x := float(point.get("x", 0.0))
+		var local_z := float(point.get("z", 0.0))
+		var api_coords := point.duplicate()
+		api_coords["y"] = 0.0
+		var godot_pos := MapManager.api_to_godot_coordinates(api_coords, scale)
 		godot_pos.y = COASTLINE_Y_OFFSET
 		world_points.append(godot_pos)
 
-	if world_points.size() < 2:
+		var seabed := _build_seafloor_vertex(Vector2(local_x, local_z), depth_areas, scale)
+		seabed.y += COASTLINE_SEAFLOOR_MARGIN
+		seafloor_points.append(seabed)
+
+	if world_points.size() < 2 or seafloor_points.size() != world_points.size():
 		return null
+
+	var mesh_instance := MeshInstance3D.new()
 
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
 	var left_points: Array = []
 	var right_points: Array = []
+	var left_top: Array = []
+	var right_top: Array = []
+	var left_bottom: Array = []
+	var right_bottom: Array = []
 
 	for idx in range(world_points.size()):
 		var current: Vector3 = world_points[idx]
+		var seabed_point: Vector3 = seafloor_points[idx]
 		var forward: Vector3
 		if idx == 0:
 			forward = (world_points[idx + 1] - current).normalized()
@@ -467,8 +487,14 @@ func _create_coastline_mesh(points: Array, scale: int, coastline_material: Mater
 		var side := Vector3(forward.z, 0, -forward.x).normalized() * COASTLINE_HALF_WIDTH
 		if side.length_squared() < 1e-6:
 			side = Vector3(0, 0, 1) * COASTLINE_HALF_WIDTH
-		left_points.append(current - side)
-		right_points.append(current + side)
+		var left_base := current - side
+		var right_base := current + side
+		left_points.append(left_base)
+		right_points.append(right_base)
+		left_top.append(Vector3(left_base.x, left_base.y + COASTLINE_HEIGHT, left_base.z))
+		right_top.append(Vector3(right_base.x, right_base.y + COASTLINE_HEIGHT, right_base.z))
+		left_bottom.append(Vector3(left_base.x, seabed_point.y, left_base.z))
+		right_bottom.append(Vector3(right_base.x, seabed_point.y, right_base.z))
 
 	for idx in range(world_points.size() - 1):
 		var l0: Vector3 = left_points[idx]
@@ -476,51 +502,165 @@ func _create_coastline_mesh(points: Array, scale: int, coastline_material: Mater
 		var l1: Vector3 = left_points[idx + 1]
 		var r1: Vector3 = right_points[idx + 1]
 
+		var lt0: Vector3 = left_top[idx]
+		var rt0: Vector3 = right_top[idx]
+		var lt1: Vector3 = left_top[idx + 1]
+		var rt1: Vector3 = right_top[idx + 1]
+		var lb0: Vector3 = left_bottom[idx]
+		var rb0: Vector3 = right_bottom[idx]
+		var lb1: Vector3 = left_bottom[idx + 1]
+		var rb1: Vector3 = right_bottom[idx + 1]
+
+		# Top surface
+		st.add_vertex(lt0)
+		st.add_vertex(rt0)
+		st.add_vertex(lt1)
+
+		st.add_vertex(rt0)
+		st.add_vertex(rt1)
+		st.add_vertex(lt1)
+
+		# Left wall
 		st.add_vertex(l0)
-		st.add_vertex(r0)
 		st.add_vertex(l1)
+		st.add_vertex(lt1)
+
+		st.add_vertex(l0)
+		st.add_vertex(lt1)
+		st.add_vertex(lt0)
+
+		# Right wall
+		st.add_vertex(r0)
+		st.add_vertex(rt0)
+		st.add_vertex(rt1)
 
 		st.add_vertex(r0)
+		st.add_vertex(rt1)
 		st.add_vertex(r1)
+
+		# Left column (seafloor to base)
+		st.add_vertex(lb0)
+		st.add_vertex(lb1)
 		st.add_vertex(l1)
+
+		st.add_vertex(lb0)
+		st.add_vertex(l1)
+		st.add_vertex(l0)
+
+		# Right column (seafloor to base)
+		st.add_vertex(rb0)
+		st.add_vertex(r0)
+		st.add_vertex(r1)
+
+		st.add_vertex(rb0)
+		st.add_vertex(r1)
+		st.add_vertex(rb1)
+
+		# Bottom surface
+		st.add_vertex(rb0)
+		st.add_vertex(lb0)
+		st.add_vertex(lb1)
+
+		st.add_vertex(rb0)
+		st.add_vertex(lb1)
+		st.add_vertex(rb1)
+
+	# End caps
+	var l_start: Vector3 = left_points[0]
+	var r_start: Vector3 = right_points[0]
+	var lt_start: Vector3 = left_top[0]
+	var rt_start: Vector3 = right_top[0]
+	var lb_start: Vector3 = left_bottom[0]
+	var rb_start: Vector3 = right_bottom[0]
+
+	st.add_vertex(l_start)
+	st.add_vertex(rt_start)
+	st.add_vertex(r_start)
+
+	st.add_vertex(l_start)
+	st.add_vertex(lt_start)
+	st.add_vertex(rt_start)
+
+	st.add_vertex(lb_start)
+	st.add_vertex(rb_start)
+	st.add_vertex(r_start)
+
+	st.add_vertex(lb_start)
+	st.add_vertex(r_start)
+	st.add_vertex(l_start)
+
+	var last := left_points.size() - 1
+	var l_end: Vector3 = left_points[last]
+	var r_end: Vector3 = right_points[last]
+	var lt_end: Vector3 = left_top[last]
+	var rt_end: Vector3 = right_top[last]
+	var lb_end: Vector3 = left_bottom[last]
+	var rb_end: Vector3 = right_bottom[last]
+
+	st.add_vertex(l_end)
+	st.add_vertex(r_end)
+	st.add_vertex(rt_end)
+
+	st.add_vertex(l_end)
+	st.add_vertex(rt_end)
+	st.add_vertex(lt_end)
+
+	st.add_vertex(lb_end)
+	st.add_vertex(r_end)
+	st.add_vertex(rb_end)
+
+	st.add_vertex(lb_end)
+	st.add_vertex(l_end)
+	st.add_vertex(r_end)
 
 	st.generate_normals()
 	var mesh := st.commit()
 	if mesh == null:
 		return null
 
-	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.mesh = mesh
-	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	if coastline_material:
 		mesh_instance.material_override = coastline_material
 
 	return mesh_instance
 
-func _create_land_polygon_mesh(polygon_points: Array, scale: int, land_material: Material) -> MeshInstance3D:
+func _create_land_polygon_mesh(polygon_points: Array, depth_areas: Array, scale: int, land_material: Material) -> MeshInstance3D:
 	if polygon_points.size() < 3:
 		return null
 
 	var polygon2d := PackedVector2Array()
-	var vertices3d: Array = []
+	var base_points: Array = []
+	var deep_points: Array = []
 
 	for point_variant in polygon_points:
 		var point_dict: Dictionary = point_variant as Dictionary
 		if not point_dict or point_dict.is_empty():
 			continue
-		var godot_pos := MapManager.api_to_godot_coordinates(point_dict, scale)
-		var vertex3d := Vector3(godot_pos.x, LAND_Y_OFFSET, godot_pos.z)
+		var local_x := float(point_dict.get("x", 0.0))
+		var local_z := float(point_dict.get("z", 0.0))
+		var api_coords := point_dict.duplicate()
+		api_coords["y"] = 0.0
+		var godot_pos := MapManager.api_to_godot_coordinates(api_coords, scale)
 		polygon2d.append(Vector2(godot_pos.x, godot_pos.z))
-		vertices3d.append(vertex3d)
+		base_points.append(Vector3(godot_pos.x, LAND_Y_OFFSET, godot_pos.z))
+		var seabed := _build_seafloor_vertex(Vector2(local_x, local_z), depth_areas, scale)
+		seabed.y += LAND_SEAFLOOR_MARGIN
+		deep_points.append(seabed)
 
 	if polygon2d.size() < 3:
 		return null
 
 	if polygon2d.size() >= 2 and polygon2d[0].distance_to(polygon2d[polygon2d.size() - 1]) < 0.001:
 		polygon2d.remove_at(polygon2d.size() - 1)
-		vertices3d.pop_back()
+		base_points.remove_at(base_points.size() - 1)
+		deep_points.remove_at(deep_points.size() - 1)
 		if polygon2d.size() < 3:
 			return null
+
+	var top_points: Array = []
+	for base_point in base_points:
+		top_points.append(Vector3(base_point.x, base_point.y + LAND_EXTRUSION_HEIGHT, base_point.z))
 
 	var indices := Geometry2D.triangulate_polygon(polygon2d)
 	if indices.is_empty():
@@ -530,20 +670,54 @@ func _create_land_polygon_mesh(polygon_points: Array, scale: int, land_material:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
 	for i in range(0, indices.size(), 3):
-		var idx0: int = indices[i]
-		var idx1: int = indices[i + 1]
-		var idx2: int = indices[i + 2]
-		st.add_vertex(vertices3d[idx0])
-		st.add_vertex(vertices3d[idx1])
-		st.add_vertex(vertices3d[idx2])
+		var idx0 := indices[i]
+		var idx1 := indices[i + 1]
+		var idx2 := indices[i + 2]
+		st.add_vertex(top_points[idx0])
+		st.add_vertex(top_points[idx1])
+		st.add_vertex(top_points[idx2])
 
+	for i in range(0, indices.size(), 3):
+		var idx0 := indices[i]
+		var idx1 := indices[i + 1]
+		var idx2 := indices[i + 2]
+		st.add_vertex(deep_points[idx2])
+		st.add_vertex(deep_points[idx1])
+		st.add_vertex(deep_points[idx0])
+
+	for i in range(base_points.size()):
+		var next := (i + 1) % base_points.size()
+		var b0: Vector3 = base_points[i]
+		var b1: Vector3 = base_points[next]
+		var t0: Vector3 = top_points[i]
+		var t1: Vector3 = top_points[next]
+		var d0: Vector3 = deep_points[i]
+		var d1: Vector3 = deep_points[next]
+
+		st.add_vertex(b0)
+		st.add_vertex(b1)
+		st.add_vertex(t1)
+
+		st.add_vertex(b0)
+		st.add_vertex(t1)
+		st.add_vertex(t0)
+
+		st.add_vertex(d0)
+		st.add_vertex(d1)
+		st.add_vertex(b1)
+
+		st.add_vertex(d0)
+		st.add_vertex(b1)
+		st.add_vertex(b0)
+
+	st.generate_normals()
 	var mesh := st.commit()
 	if mesh == null:
 		return null
 
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.mesh = mesh
-	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	if land_material:
 		mesh_instance.material_override = land_material
 	return mesh_instance
