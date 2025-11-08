@@ -8,7 +8,7 @@
 [resource]
 render_priority = 0
 shader = ExtResource("1")
-shader_parameter/shallow_color = Color(0.172549, 0.65098, 0.8, 1)
+shader_parameter/shallow_color = Color(0.320715, 0.765333, 0.949452, 1)
 shader_parameter/deep_color = Color(0.0627451, 0.176471, 0.541176, 1)
 shader_parameter/depth_power = 1.4
 shader_parameter/normal_map_a = ExtResource("2")

@@ -1,6 +1,36 @@
-[gd_resource type="StandardMaterial3D" format=3 uid="uid://cnxoscttbslgr"]
+[gd_resource type="StandardMaterial3D" load_steps=6 format=3 uid="uid://cnxoscttbslgr"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_dp25u"]
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_2k2jf"]
+seamless = true
+as_normal_map = true
+noise = SubResource("FastNoiseLite_dp25u")
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_8da1l"]
+seamless = true
+as_normal_map = true
+noise = SubResource("FastNoiseLite_dp25u")
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_3khb0"]
+seamless = true
+as_normal_map = true
+noise = SubResource("FastNoiseLite_dp25u")
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_dp25u"]
+seamless = true
+as_normal_map = true
+noise = SubResource("FastNoiseLite_dp25u")
 
 [resource]
 transparency = 1
-albedo_color = Color(0.314181, 0.136096, 0.00378065, 1)
-metallic = 0.5
+depth_draw_mode = 1
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.478431, 0.368627, 0.0862745, 1)
+albedo_texture = SubResource("NoiseTexture2D_2k2jf")
+metallic = 1.0
+metallic_texture = SubResource("NoiseTexture2D_8da1l")
+roughness_texture = SubResource("NoiseTexture2D_dp25u")
+roughness_texture_channel = 3
+rim_enabled = true
+rim_texture = SubResource("NoiseTexture2D_3khb0")
