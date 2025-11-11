@@ -27,6 +27,7 @@ script = ExtResource("1_main")
 transform = Transform3D(0.819152, -0.469846, 0.32899, 0, 0.573577, 0.819152, -0.573576, -0.67101, 0.469846, 0, 0, 0)
 
 [node name="SunLight" type="DirectionalLight3D" parent="SunRig"]
+transform = Transform3D(1, 5.96046e-08, -4.17233e-07, 0, 1, -6.85453e-07, 0, -2.98023e-08, 1, -1.82688e-07, 0.334859, 0.478228)
 light_color = Color(1, 0.952941, 0.839216, 1)
 light_energy = 2.0
 light_angular_distance = 3.0
