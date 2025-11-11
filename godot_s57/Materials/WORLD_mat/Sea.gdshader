@@ -29,12 +29,12 @@ uniform float foam_width : hint_range(0.01, 1.0, 0.01) = 0.45;
 uniform vec3 foam_color : source_color = vec3(0.78, 0.85, 0.92);
 uniform float foam_emission_strength : hint_range(0.0, 1.0, 0.01) = 0.12;
 
-uniform float fresnel_strength : hint_range(0.0, 1.0, 0.01) = 0.38;
-uniform float fresnel_power : hint_range(1.0, 8.0, 0.1) = 4.2;
+uniform float fresnel_strength : hint_range(0.0, 1.0, 0.01) = 0.22;
+uniform float fresnel_power : hint_range(1.0, 8.0, 0.1) = 2.8;
 uniform vec3 reflection_tint : source_color = vec3(0.56, 0.64, 0.74);
-uniform float reflection_strength : hint_range(0.0, 1.0, 0.01) = 0.2;
+uniform float reflection_strength : hint_range(0.0, 1.0, 0.01) = 0.08;
 
-uniform float base_roughness : hint_range(0.0, 1.0, 0.01) = 0.18;
+uniform float base_roughness : hint_range(0.0, 1.0, 0.01) = 0.24;
 uniform float specular_strength : hint_range(0.0, 1.0, 0.01) = 0.25;
 
 uniform float transparency_shallow : hint_range(0.0, 1.0, 0.01) = 0.3;
@@ -91,14 +91,15 @@ void fragment() {
 	float color_noise = sin(dot(v_world_position.xz, vec2(0.045, -0.038)) + TIME * 0.3) * 0.5 + 0.5;
 	base_color = mix(base_color, base_color + vec3(0.05, 0.07, 0.09) * color_noise, color_noise_strength);
 
-	vec3 reflection_color = textureLod(SCREEN_TEXTURE, SCREEN_UV, 2.0).rgb * reflection_tint;
-	base_color = mix(base_color, reflection_color, reflection_strength * fresnel);
+	vec3 reflection_color = textureLod(SCREEN_TEXTURE, SCREEN_UV, 3.0).rgb * reflection_tint;
+	float fresnel_mix = mix(0.05, 1.0, clamp(fresnel, 0.0, 1.0));
+	base_color = mix(base_color, reflection_color, reflection_strength * fresnel_mix);
 
 	float wave_intensity = smoothstep(foam_bias, foam_bias + foam_width, abs(v_wave_height));
 	float foam_factor = foam_strength * wave_intensity * (1.0 - depth_norm);
 	base_color = mix(base_color, base_color + foam_color * 0.35, foam_factor);
 
-	float lighting = 0.18 + diffuse * 0.35;
+	float lighting = 0.35 + diffuse * 0.25;
 	ALBEDO = base_color * lighting;
 	SPECULAR = specular_strength;
 	ROUGHNESS = clamp(base_roughness + (1.0 - fresnel) * 0.05, 0.03, 1.0);
@@ -108,5 +109,4 @@ void fragment() {
 	float transparency = mix(transparency_deep, transparency_shallow, pow(1.0 - depth_norm, 1.3));
 	ALPHA = clamp(1.0 - transparency, 0.2, 0.95);
 }
-
 
