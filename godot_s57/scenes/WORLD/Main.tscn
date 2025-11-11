@@ -7,7 +7,7 @@ sky_top_color = Color(0.321569, 0.764706, 0.94902, 1)
 sky_horizon_color = Color(0.418538, 0.678558, 0.919559, 1)
 sky_curve = 296.735
 sky_energy_multiplier = 2.0
-ground_bottom_color = Color(0.321569, 0.764706, 0.94902, 1)
+ground_bottom_color = Color(0.034737, 0.262058, 0.345467, 1)
 ground_horizon_color = Color(0.321569, 0.764706, 0.94902, 1)
 sun_angle_max = 0.6
 
