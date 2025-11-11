@@ -4,6 +4,7 @@ extends Node
 const SEA_FLOOR_MATERIAL := "res://Materials/WORLD_mat/SeaFloorMaterial.tres"
 const SEA_SURFACE_MATERIAL := "res://Materials/WORLD_mat/SeaMaterial.tres"
 const SEA_FLOOR_DEPTH_SCALE := 3.0
+const SEA_BOUNDARY_EXPANSION_FACTOR := 1.2
 
 const COASTLINE_MATERIAL := "res://Materials/WORLD_mat/CoastlineMaterial.tres"
 const COASTLINE_Y_OFFSET := 0.05
@@ -12,6 +13,7 @@ const COASTLINE_HALF_WIDTH := 0.8
 const LAND_MATERIAL := "res://Materials/WORLD_mat/LandMaterial.tres"
 const LAND_Y_OFFSET := 0.03
 const BARRIER_HEIGHT := 25.0
+const BARRIER_DEPTH_OFFSET := -6.0
 const BARRIER_COLOR_BOTTOM := Color(0.08, 0.15, 0.23, 0.65)
 const BARRIER_COLOR_TOP := Color(0.2, 0.28, 0.36, 0.0)
 
@@ -74,6 +76,13 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 		if land_variant is Array:
 			land_polygons_data = land_variant
 
+	var sea_polygon_for_render: Array = seaare_polygon.duplicate(true)
+	var boundary_polygon: Array = seaare_polygon
+	if not seaare_polygon.is_empty():
+		var expanded := _expand_polygon(seaare_polygon, SEA_BOUNDARY_EXPANSION_FACTOR)
+		if not expanded.is_empty():
+			sea_polygon_for_render = expanded
+
 	var total_objects := 0
 	if nav_objects:
 		for category_value in nav_objects.values():
@@ -98,10 +107,10 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	print("- Land polygons: " + str(total_land_polygons))
 	print("- Scale: 1:" + str(scale))
 
-	var sea_surface := generate_sea_surface(seaare_polygon, depth_areas, scale)
+	var sea_surface := generate_sea_surface(sea_polygon_for_render, depth_areas, scale)
 	environment_root.add_child(sea_surface)
 
-	var sea_floor := generate_seafloor(depth_areas, seaare_polygon, scale)
+	var sea_floor := generate_seafloor(depth_areas, sea_polygon_for_render, scale)
 	if sea_floor:
 		environment_root.add_child(sea_floor)
 
@@ -113,7 +122,7 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	if coastline_root:
 		environment_root.add_child(coastline_root)
 
-	var boundary_root := generate_boundary_barrier(seaare_polygon, scale)
+	var boundary_root := generate_boundary_barrier(boundary_polygon, scale)
 	if boundary_root:
 		environment_root.add_child(boundary_root)
 
@@ -734,6 +743,38 @@ func _load_material(path: String) -> Material:
 		_material_cache[path] = load(path)
 	return _material_cache[path]
 
+func _expand_polygon(points: Array, factor: float) -> Array:
+	if factor <= 1.0:
+		return points.duplicate(true)
+
+	var sanitized := _sanitize_sea_polygon(points)
+	if sanitized.size() < 3:
+		return sanitized
+
+	var centroid := Vector2.ZERO
+	for point_variant in sanitized:
+		var point_dict: Dictionary = point_variant as Dictionary
+		if not point_dict:
+			continue
+		centroid += Vector2(float(point_dict.get("x", 0.0)), float(point_dict.get("z", 0.0)))
+
+	centroid /= sanitized.size()
+
+	var expanded: Array = []
+	for point_variant in sanitized:
+		var point_dict: Dictionary = point_variant as Dictionary
+		if not point_dict:
+			continue
+		var original := Vector2(float(point_dict.get("x", 0.0)), float(point_dict.get("z", 0.0)))
+		var direction := original - centroid
+		var scaled := centroid + direction * factor
+		expanded.append({
+			"x": scaled.x,
+			"z": scaled.y
+		})
+
+	return expanded
+
 func generate_boundary_barrier(seaare_polygon: Array, scale: int) -> Node3D:
 	if seaare_polygon.is_empty():
 		return null
@@ -764,10 +805,12 @@ func generate_boundary_barrier(seaare_polygon: Array, scale: int) -> Node3D:
 
 	for idx in range(world_points.size()):
 		var next := (idx + 1) % world_points.size()
-		var bottom_a: Vector3 = world_points[idx]
-		var bottom_b: Vector3 = world_points[next]
-		var top_a: Vector3 = bottom_a + Vector3(0, BARRIER_HEIGHT, 0)
-		var top_b: Vector3 = bottom_b + Vector3(0, BARRIER_HEIGHT, 0)
+		var base_a: Vector3 = world_points[idx]
+		var base_b: Vector3 = world_points[next]
+		var bottom_a: Vector3 = base_a + Vector3(0, BARRIER_DEPTH_OFFSET, 0)
+		var bottom_b: Vector3 = base_b + Vector3(0, BARRIER_DEPTH_OFFSET, 0)
+		var top_a: Vector3 = base_a + Vector3(0, BARRIER_HEIGHT, 0)
+		var top_b: Vector3 = base_b + Vector3(0, BARRIER_HEIGHT, 0)
 
 		st.set_color(BARRIER_COLOR_BOTTOM)
 		st.add_vertex(bottom_a)
