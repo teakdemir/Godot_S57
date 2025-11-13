@@ -8,9 +8,9 @@
 [resource]
 render_priority = 0
 shader = ExtResource("1")
-shader_parameter/shallow_color = Color(0.320715, 0.765333, 0.949452, 1)
+shader_parameter/shallow_color = Color(0.274098, 0.740655, 0.928462, 1)
 shader_parameter/deep_color = Color(0.0627451, 0.176471, 0.541176, 1)
-shader_parameter/depth_power = 1.4
+shader_parameter/depth_power = 3.0
 shader_parameter/normal_map_a = ExtResource("2")
 shader_parameter/normal_map_b = ExtResource("3")
 shader_parameter/height_map = ExtResource("4")
@@ -32,10 +32,10 @@ shader_parameter/foam_color = Color(0.78, 0.85, 0.92, 1)
 shader_parameter/foam_emission_strength = 0.12
 shader_parameter/fresnel_strength = 0.2
 shader_parameter/fresnel_power = 1.0
-shader_parameter/reflection_tint = Color(0.56, 0.64, 0.74, 1)
-shader_parameter/reflection_strength = 0.05
+shader_parameter/reflection_tint = Color(0.729412, 0.85098, 0.901961, 1)
+shader_parameter/reflection_strength = 0.08
 shader_parameter/base_roughness = 0.18
 shader_parameter/specular_strength = 0.25
-shader_parameter/transparency_shallow = 0.3
-shader_parameter/transparency_deep = 0.26
+shader_parameter/transparency_shallow = 0.2
+shader_parameter/transparency_deep = 0.05
 shader_parameter/color_noise_strength = 0.08

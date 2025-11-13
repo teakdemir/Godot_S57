@@ -4,7 +4,9 @@ extends Node
 const SEA_FLOOR_MATERIAL := "res://Materials/WORLD_mat/SeaFloorMaterial.tres"
 const SEA_SURFACE_MATERIAL := "res://Materials/WORLD_mat/SeaMaterial.tres"
 const SEA_FLOOR_DEPTH_SCALE := 3.0
-const SEA_BOUNDARY_EXPANSION_FACTOR := 1.2
+const SEA_FLOOR_DEPTH_MULTIPLIER := 2.0
+const SEA_BOUNDARY_EXPANSION_FACTOR := 1.0
+const MAP_EXTENSION_FACTOR := 1.2
 
 const COASTLINE_MATERIAL := "res://Materials/WORLD_mat/CoastlineMaterial.tres"
 const COASTLINE_Y_OFFSET := 0.05
@@ -96,15 +98,35 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	if sea_polygons.is_empty() and not seaare_polygon.is_empty():
 		sea_polygons.append(seaare_polygon)
 
-	var sea_polygon_for_render: Array = seaare_polygon.duplicate(true)
-	if not sea_polygons.is_empty():
-		sea_polygon_for_render = sea_polygons[0].duplicate(true)
+	var base_sea_polygons := _sanitize_polygon_collection(sea_polygons)
+	if base_sea_polygons.is_empty() and not seaare_polygon.is_empty():
+		var sanitized_seaare := _sanitize_polygon(seaare_polygon)
+		if sanitized_seaare.size() >= 3:
+			base_sea_polygons.append(sanitized_seaare)
 
-	var boundary_polygon: Array = sea_polygon_for_render
-	if not sea_polygon_for_render.is_empty():
-		var expanded := _expand_polygon(sea_polygon_for_render, SEA_BOUNDARY_EXPANSION_FACTOR)
-		if not expanded.is_empty():
-			boundary_polygon = expanded
+	var extended_sea_polygons := _expand_polygon_collection(base_sea_polygons, MAP_EXTENSION_FACTOR)
+	if extended_sea_polygons.is_empty():
+		extended_sea_polygons = base_sea_polygons.duplicate(true)
+
+	var boundary_base_polygon: Array = []
+	if not base_sea_polygons.is_empty():
+		boundary_base_polygon = base_sea_polygons[0].duplicate(true)
+
+	var boundary_polygon: Array = boundary_base_polygon
+	if not boundary_base_polygon.is_empty():
+		var expanded_boundary := _expand_polygon(boundary_base_polygon, SEA_BOUNDARY_EXPANSION_FACTOR)
+		if expanded_boundary.size() >= 3:
+			boundary_polygon = expanded_boundary
+
+	var sea_surface_polygons: Array = extended_sea_polygons
+	if sea_surface_polygons.is_empty() and boundary_base_polygon.size() >= 3:
+		sea_surface_polygons = [boundary_base_polygon.duplicate(true)]
+
+	var sea_polygon_for_depths: Array = []
+	if not sea_surface_polygons.is_empty():
+		sea_polygon_for_depths = sea_surface_polygons[0].duplicate(true)
+	else:
+		sea_polygon_for_depths = boundary_base_polygon
 
 	var total_objects := 0
 	if nav_objects:
@@ -124,21 +146,22 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 		total_land_polygons = land_polygons_data.size()
 
 	print("Generating 3D environment:")
-	print("- Sea polygon sets: " + str(sea_polygons.size()))
+	print("- Sea polygon sets: " + str(sea_surface_polygons.size()))
 	print("- Navigation object count: " + str(total_objects))
 	print("- Coastline segment groups: " + str(total_coastline_segments))
 	print("- Land polygons: " + str(total_land_polygons))
 	print("- Scale: 1:" + str(scale))
 
-	var sea_surface: Node3D = generate_sea_surface(sea_polygons, sea_polygon_for_render, depth_areas, scale)
+	var sea_surface: Node3D = generate_sea_surface(sea_surface_polygons, boundary_base_polygon, depth_areas, scale)
 	if sea_surface:
 		environment_root.add_child(sea_surface)
 
-	var sea_floor: MeshInstance3D = generate_seafloor(depth_areas, sea_polygon_for_render, scale)
+	var sea_floor: MeshInstance3D = generate_seafloor(depth_areas, sea_polygon_for_depths, scale)
 	if sea_floor:
 		environment_root.add_child(sea_floor)
 
-	var land_root: Node3D = generate_landmasses(land_polygons_data, scale)
+	var extended_land_polygons_data := _extend_land_polygons(land_polygons_data, MAP_EXTENSION_FACTOR)
+	var land_root: Node3D = generate_landmasses(extended_land_polygons_data, scale)
 	if land_root:
 		environment_root.add_child(land_root)
 
@@ -156,7 +179,7 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 
 	return environment_root
 
-func generate_sea_surface(sea_polygons: Array, fallback_polygon: Array, _depth_areas: Array, scale: int) -> Node3D:
+func generate_sea_surface(sea_polygons: Array, fallback_polygon: Array, depth_areas: Array, scale: int) -> Node3D:
 	var polygons := _sanitize_polygon_collection(sea_polygons)
 	if polygons.is_empty():
 		var sanitized_fallback := _sanitize_polygon(fallback_polygon)
@@ -172,7 +195,7 @@ func generate_sea_surface(sea_polygons: Array, fallback_polygon: Array, _depth_a
 	var created := 0
 
 	for polygon_points in polygons:
-		var mesh_instance := _create_water_polygon_mesh(polygon_points, scale, sea_material)
+		var mesh_instance := _create_water_polygon_mesh(polygon_points, scale, sea_material, depth_areas)
 		if mesh_instance:
 			mesh_instance.name = "SeaPatch_%d" % created
 			sea_root.add_child(mesh_instance)
@@ -180,7 +203,7 @@ func generate_sea_surface(sea_polygons: Array, fallback_polygon: Array, _depth_a
 
 	return sea_root if created > 0 else null
 
-func _create_water_polygon_mesh(polygon_points: Array, scale: int, sea_material: Material) -> MeshInstance3D:
+func _create_water_polygon_mesh(polygon_points: Array, scale: int, sea_material: Material, depth_areas: Array) -> MeshInstance3D:
 	var sanitized := _sanitize_polygon(polygon_points)
 	if sanitized.size() < 3:
 		return null
@@ -188,12 +211,18 @@ func _create_water_polygon_mesh(polygon_points: Array, scale: int, sea_material:
 	var points2d: Array = []
 	var top_vertices: Array = []
 	var bottom_vertices: Array = []
+	var depth_samples: Array = []
+	var max_depth_sample := 0.0
 
 	for point_dict in sanitized:
 		var world := MapManager.api_to_godot_coordinates(point_dict, scale)
 		points2d.append(Vector2(world.x, world.z))
 		top_vertices.append(Vector3(world.x, 0.0, world.z))
 		bottom_vertices.append(Vector3(world.x, -SEA_SURFACE_THICKNESS, world.z))
+
+		var sample_depth: float = abs(_sample_depth_for_point(float(point_dict.get("x", 0.0)), float(point_dict.get("z", 0.0)), depth_areas))
+		depth_samples.append(sample_depth)
+		max_depth_sample = max(max_depth_sample, sample_depth)
 
 	if points2d.size() < 3:
 		return null
@@ -212,16 +241,29 @@ func _create_water_polygon_mesh(polygon_points: Array, scale: int, sea_material:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
+	var color_lookup: Array = []
+	var depth_denominator: float = max(max_depth_sample, 0.001)
+	for sample in depth_samples:
+		var normalized: float = clamp(sample / depth_denominator, 0.0, 1.0)
+		color_lookup.append(Color(normalized, normalized, normalized, 1.0))
+
 	for i in range(0, indices.size(), 3):
 		var idx0: int = indices[i]
 		var idx1: int = indices[i + 1]
 		var idx2: int = indices[i + 2]
+
+		st.set_color(color_lookup[idx0])
 		st.add_vertex(top_vertices[idx0])
+		st.set_color(color_lookup[idx1])
 		st.add_vertex(top_vertices[idx1])
+		st.set_color(color_lookup[idx2])
 		st.add_vertex(top_vertices[idx2])
 
+		st.set_color(color_lookup[idx2])
 		st.add_vertex(bottom_vertices[idx2])
+		st.set_color(color_lookup[idx1])
 		st.add_vertex(bottom_vertices[idx1])
+		st.set_color(color_lookup[idx0])
 		st.add_vertex(bottom_vertices[idx0])
 
 	for idx in range(top_vertices.size()):
@@ -230,7 +272,9 @@ func _create_water_polygon_mesh(polygon_points: Array, scale: int, sea_material:
 		var top_b: Vector3 = top_vertices[next]
 		var bottom_a: Vector3 = bottom_vertices[idx]
 		var bottom_b: Vector3 = bottom_vertices[next]
-		_add_quad_surface(st, top_a, top_b, bottom_b, bottom_a)
+		var color_a: Color = color_lookup[idx]
+		var color_b: Color = color_lookup[next]
+		_add_quad_surface(st, top_a, top_b, bottom_b, bottom_a, color_a, color_b)
 
 	st.generate_normals()
 	var mesh := st.commit()
@@ -335,6 +379,36 @@ func generate_navigation_objects(nav_objects: Dictionary, scale: int) -> Node3D:
 		return null
 
 	return root
+
+func _extend_land_polygons(land_entries: Array, factor: float) -> Array:
+	if land_entries.is_empty():
+		return []
+
+	if factor <= 1.0:
+		return land_entries.duplicate(true)
+
+	var extended_entries: Array = []
+	for entry_variant in land_entries:
+		var land_dict: Dictionary = entry_variant as Dictionary
+		if land_dict.is_empty():
+			continue
+
+		var polygons_variant = land_dict.get("polygons", [])
+		if not (polygons_variant is Array):
+			continue
+
+		var expanded_polygons := _expand_polygon_collection(polygons_variant, factor)
+		if expanded_polygons.is_empty():
+			expanded_polygons = _sanitize_polygon_collection(polygons_variant)
+
+		if expanded_polygons.is_empty():
+			continue
+
+		var duplicated := land_dict.duplicate(true)
+		duplicated["polygons"] = expanded_polygons
+		extended_entries.append(duplicated)
+
+	return extended_entries if extended_entries.size() > 0 else land_entries.duplicate(true)
 
 func generate_landmasses(land_polygons: Array, scale: int) -> Node3D:
 	if land_polygons.is_empty():
@@ -662,7 +736,7 @@ func _get_cell_samples(bounds: Dictionary, step_x: float, step_z: float, x_index
 
 func _build_seafloor_vertex(local_pos: Vector2, depth_areas: Array, scale: int) -> Vector3:
 	var depth_value: float = _sample_depth_for_point(local_pos.x, local_pos.y, depth_areas)
-	var scaled_depth := depth_value * SEA_FLOOR_DEPTH_SCALE
+	var scaled_depth := depth_value * SEA_FLOOR_DEPTH_SCALE * SEA_FLOOR_DEPTH_MULTIPLIER
 	var api_coords := {
 		"x": local_pos.x,
 		"y": scaled_depth,
@@ -919,12 +993,18 @@ func generate_boundary_barrier(seaare_polygon: Array, scale: int) -> Node3D:
 
 	return boundary_root
 
-func _add_quad_surface(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+func _add_quad_surface(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color_a: Color = Color(1, 1, 1, 1), color_b: Color = Color(1, 1, 1, 1)) -> void:
+	st.set_color(color_a)
 	st.add_vertex(a)
+	st.set_color(color_b)
 	st.add_vertex(b)
+	st.set_color(color_b)
 	st.add_vertex(c)
+	st.set_color(color_a)
 	st.add_vertex(a)
+	st.set_color(color_b)
 	st.add_vertex(c)
+	st.set_color(color_a)
 	st.add_vertex(d)
 
 func _create_static_body_from_mesh(mesh: Mesh) -> StaticBody3D:
@@ -973,6 +1053,20 @@ func _sanitize_polygon_collection(polygons: Array) -> Array:
 		if sanitized.size() >= 3:
 			sanitized_collection.append(sanitized)
 	return sanitized_collection
+
+func _expand_polygon_collection(polygons: Array, factor: float) -> Array:
+	if factor <= 1.0:
+		return _sanitize_polygon_collection(polygons)
+
+	var expanded_collection: Array = []
+	for polygon_variant in polygons:
+		if not (polygon_variant is Array):
+			continue
+		var sanitized := _sanitize_polygon(polygon_variant)
+		var expanded := _expand_polygon(sanitized, factor)
+		if expanded.size() >= 3:
+			expanded_collection.append(expanded)
+	return expanded_collection
 
 func _sanitize_sea_polygon(points: Array) -> Array:
 	return _sanitize_polygon(points)
