@@ -17,6 +17,9 @@ const LAND_BASE_HEIGHT_MIN_M := 1.5
 const LAND_BASE_HEIGHT_MAX_M := 15.0
 const LAND_SLOPE_RATIO_DEFAULT := 0.12
 const LAND_EDGE_BLEND_M_DEFAULT := 60.0
+const LAND_HEIGHT_MULTIPLIER := 1.6
+const LAND_COLUMN_DEPTH_M := 18.0
+const LAND_COLUMN_MODE := true
 const BARRIER_HEIGHT := 25.0
 const BARRIER_DEPTH_OFFSET := -6.0
 const BARRIER_COLOR_BOTTOM := Color(0.08, 0.15, 0.23, 0.65)
@@ -536,12 +539,13 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 		world_points.reverse()
 		polygon2d = PackedVector2Array(points2d)
 
-	var base_height_m: float = float(land_props.get("base_height_m", LAND_BASE_HEIGHT_MIN_M))
-	var max_height_m: float = float(land_props.get("max_height_m", LAND_BASE_HEIGHT_MIN_M + 2.0))
+	var base_height_m: float = float(land_props.get("base_height_m", LAND_BASE_HEIGHT_MIN_M)) * LAND_HEIGHT_MULTIPLIER
+	var max_height_m: float = float(land_props.get("max_height_m", LAND_BASE_HEIGHT_MIN_M + 2.0)) * LAND_HEIGHT_MULTIPLIER
 	if max_height_m <= base_height_m:
 		max_height_m = base_height_m + 0.5
 
-	var slope_ratio: float = max(float(land_props.get("slope_ratio", LAND_SLOPE_RATIO_DEFAULT)), 0.01)
+	var slope_seed := float(land_props.get("slope_ratio", LAND_SLOPE_RATIO_DEFAULT))
+	var slope_ratio: float = max((slope_seed * 0.35) if LAND_COLUMN_MODE else slope_seed, 0.01)
 	var edge_blend_units: float = max(_meters_to_world_units(float(land_props.get("edge_blend_m", LAND_EDGE_BLEND_M_DEFAULT)), scale), 0.001)
 	var centroid := Vector2.ZERO
 	for point in points2d:
@@ -557,7 +561,7 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 	var bottom_vertices: Array = []
 	var base_height_units: float = _meters_to_height_units(base_height_m)
 	var max_height_units: float = _meters_to_height_units(max_height_m)
-	var bottom_height_units: float = _meters_to_height_units(DEFAULT_LAND_BOTTOM_OFFSET)
+	var bottom_height_units: float = _meters_to_height_units(-LAND_COLUMN_DEPTH_M) if LAND_COLUMN_MODE else _meters_to_height_units(DEFAULT_LAND_BOTTOM_OFFSET)
 
 	for point in world_points:
 		var planar := Vector2(point.x, point.z)
