@@ -1,201 +1,386 @@
-# res://scripts/WORLD_sc/TerrainGenerator.gd
 class_name TerrainGenerator
 extends Node
+#deniz tabanı ayarları falan fistan
+const SEA_FLOOR_MATERIAL := "res://Materials/WORLD_mat/SeaFloorMaterial.tres"
+const SEA_SURFACE_MATERIAL := "res://Materials/WORLD_mat/SeaMaterial.tres"
+const SEA_FLOOR_DEPTH_SCALE := 2.0
+const SEA_FLOOR_DEPTH_MULTIPLIER := 2.0
+const SEA_BOUNDARY_EXPANSION_FACTOR := 1.0
+const MAP_EXTENSION_FACTOR := 1.2
+#ıvır zıvır 
+const COASTLINE_MATERIAL := "res://Materials/WORLD_mat/CoastlineMaterial.tres"
+const COASTLINE_Y_OFFSET := 0.05
+const MAX_POINTS_PER_COASTLINE_MESH := 512
+const COASTLINE_HALF_WIDTH := 0.8
+const COASTLINE_CREST_HEIGHT_DEFAULT := 0.8
+const LAND_MATERIAL := "res://Materials/WORLD_mat/LandMaterial.tres"
+const LAND_Y_OFFSET := 0.03
+const LAND_BASE_HEIGHT_MIN_M := 1.5
+const LAND_BASE_HEIGHT_MAX_M := 15.0
+const LAND_SLOPE_RATIO_DEFAULT := 0.12
+const LAND_EDGE_BLEND_M_DEFAULT := 60.0
+const LAND_HEIGHT_MULTIPLIER := 1.6
+const LAND_COLUMN_DEPTH_M := 18.0
+const LAND_COLUMN_MODE := true
+const BARRIER_HEIGHT := 25.0
+const BARRIER_DEPTH_OFFSET := -6.0
+const BARRIER_COLOR_BOTTOM := Color(0.08, 0.15, 0.23, 0.65)
+const BARRIER_COLOR_TOP := Color(0.2, 0.28, 0.36, 0.0)
+const SEA_SURFACE_THICKNESS := 0.5
+const DEFAULT_LAND_BOTTOM_OFFSET := -2.0
+#alt scriptler 
+const SeaGeneratorModule := preload("res://Scripts/WORLD_sc/generators/SeaGenerator.gd")
+const LandGeneratorModule := preload("res://Scripts/WORLD_sc/generators/LandGenerator.gd")
+const ObjectGeneratorModule := preload("res://Scripts/WORLD_sc/generators/ObjectGenerator.gd")
+const BoundaryGeneratorModule := preload("res://Scripts/WORLD_sc/generators/BoundaryGenerator.gd")
+#obje tanımları boyutu cart curt
+const OBJECT_DEFINITIONS := {
+	"hrbfac": {
+		"prefab": "res://prefab/objects/harbours/harbour.tscn",
+		"material": "res://materials/WORLD_mat/HarborMaterial.tres",
+		"material_node": "harbour",
+		"scale": Vector3(5, 5, 5),
+		"y_offset": 5.0
+	},
+	"slcons": {
+		"prefab": "res://prefab/objects/shoreline/slcons.tscn"
+	},
+	"bridge": {
+		"prefab": "res://prefab/objects/bridges/bridge.tscn"
+	},
+	"lights": {
+		"prefab": "res://prefab/objects/navigation/ligths/ligth.tscn"
+	},
+	"obstrn": {
+		"prefab": "res://prefab/objects/hazards/obstrn/obstrn.tscn"
+	},
+	"uwtroc": {
+		"prefab": "res://prefab/objects/hazards/uwtroc/uwtroc.tscn"
+	},
+	"wrecks": {
+		"prefab": "res://prefab/objects/hazards/wrecks/wreck.tscn"
+	}
+}
 
-# Prefab paths
-const HARBOR_PREFAB = "res://prefab/objects/harbours/harbour.tscn"
+var _prefab_cache: Dictionary = {}
+var _material_cache: Dictionary = {}
 
-# Generate complete 3D environment from map data
+var _sea_generator: SeaGenerator
+var _land_generator: LandGenerator
+var _object_generator: ObjectGenerator
+var _boundary_generator: BoundaryGenerator
+
+func _init() -> void:
+	_sea_generator = SeaGeneratorModule.new(self)
+	_land_generator = LandGeneratorModule.new(self)
+	_object_generator = ObjectGeneratorModule.new(self)
+	_boundary_generator = BoundaryGeneratorModule.new(self)
+
+# Ana giris noktasi; tum katmanlari uretip tek bir Node3D altinda toplar.
 func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
-	var environment_root = Node3D.new()
+	var environment_root := Node3D.new()
 	environment_root.name = "MapEnvironment"
-	
-	# Extract data
-	var terrain = map_data.get("terrain", {})
-	var seaare_polygon = terrain.get("seaare_polygon", [])
-	var nav_objects = map_data.get("navigation_objects", {})
-	var harbors = nav_objects.get("structures", [])
-	
+
+	var terrain: Dictionary = map_data.get("terrain", {}) as Dictionary
+	var seaare_polygon: Array = []
+	if terrain:
+		var seaare_variant = terrain.get("seaare_polygon", [])
+		if seaare_variant is Array:
+			seaare_polygon = seaare_variant
+
+	var nav_objects: Dictionary = map_data.get("navigation_objects", {}) as Dictionary
+	var depth_areas: Array = []
+	if terrain:
+		var depth_variant = terrain.get("depth_areas", [])
+		if depth_variant is Array:
+			depth_areas = depth_variant
+	var coastline_data: Array = []
+	if terrain:
+		var coastline_variant = terrain.get("coastlines", [])
+		if coastline_variant is Array:
+			coastline_data = coastline_variant
+	var land_polygons_data: Array = []
+	if terrain:
+		var land_variant = terrain.get("land_polygons", [])
+		if land_variant is Array:
+			land_polygons_data = land_variant
+
+	var sea_polygons: Array = []
+	if terrain:
+		var sea_polygons_variant = terrain.get("sea_polygons", [])
+		if sea_polygons_variant is Array:
+			for polygon_variant in sea_polygons_variant:
+				if polygon_variant is Array:
+					sea_polygons.append(polygon_variant)
+	if sea_polygons.is_empty() and not seaare_polygon.is_empty():
+		sea_polygons.append(seaare_polygon)
+
+	var base_sea_polygons := _sanitize_polygon_collection(sea_polygons)
+	if base_sea_polygons.is_empty() and not seaare_polygon.is_empty():
+		var sanitized_seaare := _sanitize_polygon(seaare_polygon)
+		if sanitized_seaare.size() >= 3:
+			base_sea_polygons.append(sanitized_seaare)
+
+	var extended_sea_polygons := _expand_polygon_collection(base_sea_polygons, MAP_EXTENSION_FACTOR)
+	if extended_sea_polygons.is_empty():
+		extended_sea_polygons = base_sea_polygons.duplicate(true)
+
+	var boundary_base_polygon: Array = []
+	if not base_sea_polygons.is_empty():
+		boundary_base_polygon = base_sea_polygons[0].duplicate(true)
+
+	var boundary_polygon: Array = boundary_base_polygon
+	if not boundary_base_polygon.is_empty():
+		var expanded_boundary := _expand_polygon(boundary_base_polygon, SEA_BOUNDARY_EXPANSION_FACTOR)
+		if expanded_boundary.size() >= 3:
+			boundary_polygon = expanded_boundary
+
+	var sea_surface_polygons: Array = extended_sea_polygons
+	if sea_surface_polygons.is_empty() and boundary_base_polygon.size() >= 3:
+		sea_surface_polygons = [boundary_base_polygon.duplicate(true)]
+
+	var sea_polygon_for_depths: Array = []
+	if not sea_surface_polygons.is_empty():
+		sea_polygon_for_depths = sea_surface_polygons[0].duplicate(true)
+	else:
+		sea_polygon_for_depths = boundary_base_polygon
+
+	var total_objects := 0
+	if nav_objects:
+		for category_value in nav_objects.values():
+			var category_objects: Array = category_value as Array
+			if category_objects:
+				total_objects += category_objects.size()
+	var total_coastline_segments := 0
+	if coastline_data:
+		for coastline_variant in coastline_data:
+			var coastline_dict: Dictionary = coastline_variant as Dictionary
+			var segments_variant = coastline_dict.get("segments", [])
+			if segments_variant is Array:
+				total_coastline_segments += segments_variant.size()
+	var total_land_polygons := 0
+	if land_polygons_data:
+		total_land_polygons = land_polygons_data.size()
+
 	print("Generating 3D environment:")
-	print("- SEAARE points: " + str(seaare_polygon.size()))
-	print("- Harbor count: " + str(harbors.size()))
+	print("- Sea polygon sets: " + str(sea_surface_polygons.size()))
+	print("- Navigation object count: " + str(total_objects))
+	print("- Coastline segment groups: " + str(total_coastline_segments))
+	print("- Land polygons: " + str(total_land_polygons))
 	print("- Scale: 1:" + str(scale))
-	
-	# Generate sea surface
-	var sea_surface = generate_sea_surface(seaare_polygon, scale)
-	environment_root.add_child(sea_surface)
-	
-	# Generate harbors using prefabs
-	if harbors.size() > 0:
-		var harbors_node = generate_harbors_with_prefabs(harbors, scale)
-		environment_root.add_child(harbors_node)
-	
+
+	var sea_surface: Node3D = _sea_generator.build_surface(sea_surface_polygons, boundary_base_polygon, depth_areas, scale)
+	if sea_surface:
+		environment_root.add_child(sea_surface)
+
+	var sea_floor: MeshInstance3D = _sea_generator.build_seafloor(depth_areas, sea_polygon_for_depths, scale)
+	if sea_floor:
+		environment_root.add_child(sea_floor)
+
+	var extended_land_polygons_data := _land_generator.extend_land_polygons(land_polygons_data, MAP_EXTENSION_FACTOR)
+	var land_root: Node3D = _land_generator.build_landmasses(extended_land_polygons_data, scale)
+	if land_root:
+		environment_root.add_child(land_root)
+
+	var coastline_root: Node3D = _land_generator.build_coastlines(coastline_data, scale)
+	if coastline_root:
+		environment_root.add_child(coastline_root)
+
+	var boundary_root: Node3D = _boundary_generator.build_boundary(boundary_polygon, scale)
+	if boundary_root:
+		environment_root.add_child(boundary_root)
+
+	var navigation_root: Node3D = _object_generator.build_navigation_objects(nav_objects, scale)
+	if navigation_root:
+		environment_root.add_child(navigation_root)
+
 	return environment_root
 
-# Generate sea surface from SEAARE polygon
-func generate_sea_surface(seaare_polygon: Array, scale: int) -> MeshInstance3D:
-	var mesh_instance = MeshInstance3D.new()
-	mesh_instance.name = "SeaSurface"
-	
-	# Convert API coordinates to Godot coordinates
-	var vertices = PackedVector3Array()
-	for point in seaare_polygon:
-		var godot_pos = MapManager.api_to_godot_coordinates(point, scale)
-		vertices.append(Vector3(godot_pos.x, 0.0, godot_pos.z))
-	
-	# Calculate bounds size
-	var bounds_size = 0.0
-	if vertices.size() >= 2:
-		bounds_size = vertices[0].distance_to(vertices[2]) if vertices.size() >= 4 else vertices[0].distance_to(vertices[1])
-	
-	# Create mesh arrays
-	var arrays = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	
-	# Only create default sea if the calculated bounds are too small
-	if bounds_size < 50.0 or vertices.size() != 4:
-		print("Creating scaled default sea surface")
-		# Create sea surface proportional to scale
-		var sea_size = scale * 0.5
-		vertices = PackedVector3Array([
-			Vector3(-sea_size, 0, -sea_size),
-			Vector3(sea_size, 0, -sea_size), 
-			Vector3(sea_size, 0, sea_size),
-			Vector3(-sea_size, 0, sea_size)
-		])
-	
-	# Create triangles from quad
-	var indices = PackedInt32Array([0, 1, 2, 0, 2, 3])
-	var uvs = PackedVector2Array([
-		Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)
-	])
-	
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_INDEX] = indices
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	
-	# Calculate normals
-	var normals = PackedVector3Array()
-	for i in vertices.size():
-		normals.append(Vector3.UP)
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	
-	# Create and apply mesh
-	var array_mesh = ArrayMesh.new()
-	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	mesh_instance.mesh = array_mesh
-	
-	# Apply sea material
-	var sea_material = load("res://materials/WORLD_mat/SeaMaterial.tres")
-	if sea_material:
-		mesh_instance.material_override = sea_material
-	else:
-		var material = StandardMaterial3D.new()
-		material.albedo_color = Color("#1a4d80")
-		material.metallic = 0.2
-		material.roughness = 0.1
-		mesh_instance.material_override = material
-	
-	print("Sea surface created with ", vertices.size(), " vertices")
-	return mesh_instance
+# Deniz yüzeyine ait tüm patch'leri üretir.
+# Haritadaki poligonlarin min/max koordinatlarini dondurur.
+func _calculate_polygon_bounds(points: Array) -> Dictionary:
+	if points.is_empty():
+		return {}
+	var min_x: float = INF
+	var max_x: float = -INF
+	var min_z: float = INF
+	var max_z: float = -INF
 
-# Generate harbors using prefab system
-func generate_harbors_with_prefabs(harbors: Array, scale: int) -> Node3D:
-	var harbors_parent = Node3D.new()
-	harbors_parent.name = "Harbors"
-	
-	# Load harbor prefab
-	var harbor_prefab = load(HARBOR_PREFAB)
-	if not harbor_prefab:
-		print("Warning: Harbor prefab not found, creating basic harbors")
-		return generate_basic_harbors(harbors, scale)
-	
-	for i in range(harbors.size()):
-		var harbor_data = harbors[i]
-		var harbor_instance = create_harbor_from_prefab(harbor_prefab, harbor_data, scale, i)
-		if harbor_instance:
-			harbors_parent.add_child(harbor_instance)
-	
-	print("Harbors created: " + str(harbors.size()) + " prefab instances")
-	return harbors_parent
+	for point_variant in points:
+		var point: Dictionary = point_variant as Dictionary
+		if point.is_empty():
+			continue
+		var px: float = float(point.get("x", 0.0))
+		var pz: float = float(point.get("z", 0.0))
+		min_x = min(min_x, px)
+		max_x = max(max_x, px)
+		min_z = min(min_z, pz)
+		max_z = max(max_z, pz)
 
-# Create harbor instance from prefab
-func create_harbor_from_prefab(prefab: PackedScene, harbor_data: Dictionary, scale: int, index: int) -> Node3D:
-	var harbor_instance = prefab.instantiate()
-	if not harbor_instance:
+	return {
+		"min_x": min_x,
+		"max_x": max_x,
+		"min_z": min_z,
+		"max_z": max_z
+	}
+
+func _load_prefab(path: String) -> PackedScene:
+	if path.is_empty():
 		return null
-	
-	harbor_instance.name = "Harbor_" + str(index)
-	
-	var position = harbor_data.get("position", {})
-	if position.is_empty():
-		return null
-	
-	var godot_pos = MapManager.api_to_godot_coordinates(position, scale)
-	
-	# Set position and scale
-	harbor_instance.position = Vector3(godot_pos.x, 5, godot_pos.z)
-	harbor_instance.scale = Vector3(5, 5, 5)  # Reasonable scale
-	
-	# Apply material to harbor mesh if found
-	var mesh_node = harbor_instance.find_child("harbour")
-	if mesh_node and mesh_node is MeshInstance3D:
-		var harbor_material = load("res://materials/WORLD_mat/HarborMaterial.tres")
-		if harbor_material:
-			mesh_node.material_override = harbor_material
+	if not _prefab_cache.has(path):
+		if not ResourceLoader.exists(path):
+			print("Prefab not found: " + path)
+			_prefab_cache[path] = null
 		else:
-			var material = StandardMaterial3D.new()
-			material.albedo_color = Color("#8b4513")
-			material.roughness = 0.8
-			mesh_node.material_override = material
-	
-	return harbor_instance
+			var resource := load(path)
+			if resource and resource is PackedScene:
+				_prefab_cache[path] = resource
+			else:
+				print("Failed to load prefab: " + path)
+				_prefab_cache[path] = null
+	return _prefab_cache[path]
 
-# Fallback: Generate basic harbors if prefab fails
-func generate_basic_harbors(harbors: Array, scale: int) -> Node3D:
-	var harbors_parent = Node3D.new()
-	harbors_parent.name = "BasicHarbors"
-	
-	for i in range(harbors.size()):
-		var harbor_data = harbors[i]
-		var harbor_node = create_basic_harbor(harbor_data, scale, i)
-		if harbor_node:
-			harbors_parent.add_child(harbor_node)
-	
-	print("Basic harbors created: " + str(harbors.size()) + " objects")
-	return harbors_parent
-
-# Create basic harbor object
-func create_basic_harbor(harbor_data: Dictionary, scale: int, index: int) -> Node3D:
-	var harbor_group = Node3D.new()
-	harbor_group.name = "Harbor_" + str(index)
-	
-	var position = harbor_data.get("position", {})
-	if position.is_empty():
+# Materyalleri önbelleğe alarak yükler.
+func _load_material(path: String) -> Material:
+	if path.is_empty():
 		return null
-	
-	var godot_pos = MapManager.api_to_godot_coordinates(position, scale)
-	
-	# Create harbor mesh (box)
-	var mesh_instance = MeshInstance3D.new()
-	mesh_instance.name = "harbour"
-	
-	var box_mesh = BoxMesh.new()
-	box_mesh.size = Vector3(20, 10, 20)  # Harbor building
-	mesh_instance.mesh = box_mesh
-	
-	# Apply material
-	var harbor_material = load("res://materials/WORLD_mat/HarborMaterial.tres")
-	if harbor_material:
-		mesh_instance.material_override = harbor_material
-	else:
-		var material = StandardMaterial3D.new()
-		material.albedo_color = Color("#8b4513")
-		material.roughness = 0.8
-		mesh_instance.material_override = material
-	
-	mesh_instance.position = Vector3(0, 5, 0)
-	harbor_group.add_child(mesh_instance)
-	harbor_group.position = Vector3(godot_pos.x, 5, godot_pos.z)
-	
-	return harbor_group
+	if not _material_cache.has(path):
+		_material_cache[path] = load(path)
+	return _material_cache[path]
+
+# Poligonu merkezden büyütür.
+func _expand_polygon(points: Array, factor: float) -> Array:
+	if factor <= 1.0:
+		return points.duplicate(true)
+
+	var sanitized := _sanitize_sea_polygon(points)
+	if sanitized.size() < 3:
+		return sanitized
+
+	var centroid := Vector2.ZERO
+	for point_variant in sanitized:
+		var point_dict: Dictionary = point_variant as Dictionary
+		if not point_dict:
+			continue
+		centroid += Vector2(float(point_dict.get("x", 0.0)), float(point_dict.get("z", 0.0)))
+
+	centroid /= sanitized.size()
+
+	var expanded: Array = []
+	for point_variant in sanitized:
+		var point_dict: Dictionary = point_variant as Dictionary
+		if not point_dict:
+			continue
+		var original := Vector2(float(point_dict.get("x", 0.0)), float(point_dict.get("z", 0.0)))
+		var direction := original - centroid
+		var scaled := centroid + direction * factor
+		expanded.append({
+			"x": scaled.x,
+			"z": scaled.y
+		})
+
+	return expanded
+
+# Dortgen bir yuzeyi istege gore renkli veya renksiz ekler.
+func _add_quad_surface(
+	st: SurfaceTool,
+	a: Vector3,
+	b: Vector3,
+	c: Vector3,
+	d: Vector3,
+	color_a: Color = Color(1, 1, 1, 1),
+	color_b: Color = Color(1, 1, 1, 1),
+	use_color: bool = true
+) -> void:
+	if use_color:
+		st.set_color(color_a)
+	st.add_vertex(a)
+	if use_color:
+		st.set_color(color_b)
+	st.add_vertex(b)
+	if use_color:
+		st.set_color(color_b)
+	st.add_vertex(c)
+	if use_color:
+		st.set_color(color_a)
+	st.add_vertex(a)
+	if use_color:
+		st.set_color(color_b)
+	st.add_vertex(c)
+	if use_color:
+		st.set_color(color_a)
+	st.add_vertex(d)
+
+# Mesh verisinden statik bir carpisma govdesi uretir.
+func _create_static_body_from_mesh(mesh: Mesh) -> StaticBody3D:
+	if mesh == null:
+		return null
+	var shape := mesh.create_trimesh_shape()
+	if shape == null:
+		return null
+	var body := StaticBody3D.new()
+	var collision_shape := CollisionShape3D.new()
+	collision_shape.shape = shape
+	body.add_child(collision_shape)
+	return body
+
+# Gercek dunyadaki metreyi harita olcegine gore Godot x/z birimine cevirir. 
+func _meters_to_world_units(value_m: float, scale: int) -> float:
+	return (value_m / 1000.0) * float(scale) * 0.1
+
+# Metreyi dikey (y) birimine cevirir.
+func _meters_to_height_units(value_m: float) -> float:
+	return value_m * 0.1
+
+# Poligon verisini (x,z) kolonlarına indirger.
+# Verilen noktalar listesini (x,z) formatinda temizler.
+func _sanitize_polygon(points: Array) -> Array:
+	var result: Array = []
+	for point_variant in points:
+		var point_dict: Dictionary = point_variant as Dictionary
+		if not point_dict or point_dict.is_empty():
+			continue
+		if not point_dict.has("x") or not point_dict.has("z"):
+			continue
+		result.append({
+			"x": float(point_dict.get("x", 0.0)),
+			"z": float(point_dict.get("z", 0.0))
+		})
+	if result.size() > 2:
+		var first: Dictionary = result[0]
+		var last: Dictionary = result[result.size() - 1]
+		if abs(float(first.get("x", 0.0)) - float(last.get("x", 0.0))) < 0.0001 and abs(float(first.get("z", 0.0)) - float(last.get("z", 0.0))) < 0.0001:
+			result.remove_at(result.size() - 1)
+	return result
+
+# Birden fazla poligonu temizleyip geçersiz olanları atar.
+# Birden fazla poligonu temizleyip gecersiz olanlari eleyerek dondurur.
+func _sanitize_polygon_collection(polygons: Array) -> Array:
+	var sanitized_collection: Array = []
+	for polygon_variant in polygons:
+		if not (polygon_variant is Array):
+			continue
+		var sanitized := _sanitize_polygon(polygon_variant)
+		if sanitized.size() >= 3:
+			sanitized_collection.append(sanitized)
+	return sanitized_collection
+
+# poligonları büyütür.
+# Tum poligonu verilen faktorle genisletir.
+func _expand_polygon_collection(polygons: Array, factor: float) -> Array:
+	if factor <= 1.0:
+		return _sanitize_polygon_collection(polygons)
+
+	var expanded_collection: Array = []
+	for polygon_variant in polygons:
+		if not (polygon_variant is Array):
+			continue
+		var sanitized := _sanitize_polygon(polygon_variant)
+		var expanded := _expand_polygon(sanitized, factor)
+		if expanded.size() >= 3:
+			expanded_collection.append(expanded)
+	return expanded_collection
+
+# SEAARE icin polygon .
+func _sanitize_sea_polygon(points: Array) -> Array:
+	return _sanitize_polygon(points)

@@ -1,6 +1,41 @@
-[gd_scene load_steps=2 format=3 uid="uid://cemda8ge6bx7x"]
+[gd_scene load_steps=5 format=3 uid="uid://cemda8ge6bx7x"]
 
-[ext_resource type="Script" uid="uid://b6hqx1wdgfabn" path="res://Scripts/WORLD_sc/Main.gd" id="1_p0mg7"]
+[ext_resource type="Script" uid="uid://b6hqx1wdgfabn" path="res://Scripts/WORLD_sc/Main.gd" id="1_main"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sun"]
+sky_top_color = Color(0.715183, 0.902278, 0.992557, 1)
+sky_horizon_color = Color(0.418538, 0.678558, 0.919559, 1)
+sky_curve = 296.735
+sky_energy_multiplier = 2.0
+ground_bottom_color = Color(0.034737, 0.262058, 0.345467, 1)
+ground_horizon_color = Color(0.321569, 0.764706, 0.94902, 1)
+sun_angle_max = 0.6
+
+[sub_resource type="Sky" id="Sky_default"]
+sky_material = SubResource("ProceduralSkyMaterial_sun")
+
+[sub_resource type="Environment" id="Environment_default"]
+background_mode = 2
+sky = SubResource("Sky_default")
+ambient_light_source = 1
+ambient_light_sky_contribution = 0.7
+glow_enabled = true
+glow_intensity = 0.35
 
 [node name="Main_tscn" type="Node3D"]
-script = ExtResource("1_p0mg7")
+script = ExtResource("1_main")
+
+[node name="SunRig" type="Node3D" parent="."]
+transform = Transform3D(0.819152, -0.469846, 0.32899, 0, 0.573577, 0.819152, -0.573576, -0.67101, 0.469846, 0, 0, 0)
+
+[node name="SunLight" type="DirectionalLight3D" parent="SunRig"]
+transform = Transform3D(1, 5.96046e-08, -4.17233e-07, 0, 1, -6.85453e-07, 0, -2.98023e-08, 1, -1.82688e-07, 0.334859, 0.478228)
+light_color = Color(1, 0.952941, 0.839216, 1)
+light_energy = 2.0
+light_angular_distance = 3.0
+shadow_enabled = true
+shadow_bias = 0.05
+directional_shadow_max_distance = 20000.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_default")

@@ -1,0 +1,10 @@
+To start a 3d scene follow the steps
+
+1. Open Docker
+2. Start web server
+3. Analyze the map if there exists none in the database
+4. Open Godot3D
+5. Start the main scene
+6. Check if the API connections are working (In the debugger)
+7. Load the map that exists in the DB
+8. enjoy
