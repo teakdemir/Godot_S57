@@ -3,7 +3,7 @@ extends Node
 
 const SEA_FLOOR_MATERIAL := "res://Materials/WORLD_mat/SeaFloorMaterial.tres"
 const SEA_SURFACE_MATERIAL := "res://Materials/WORLD_mat/SeaMaterial.tres"
-const SEA_FLOOR_DEPTH_SCALE := 3.0
+const SEA_FLOOR_DEPTH_SCALE := 2.0
 const SEA_FLOOR_DEPTH_MULTIPLIER := 2.0
 const SEA_BOUNDARY_EXPANSION_FACTOR := 1.0
 const MAP_EXTENSION_FACTOR := 1.2
@@ -208,73 +208,95 @@ func _create_water_polygon_mesh(polygon_points: Array, scale: int, sea_material:
 	if sanitized.size() < 3:
 		return null
 
-	var points2d: Array = []
-	var top_vertices: Array = []
-	var bottom_vertices: Array = []
-	var depth_samples: Array = []
-	var max_depth_sample := 0.0
-
+	var polygon_api := PackedVector2Array()
 	for point_dict in sanitized:
-		var world := MapManager.api_to_godot_coordinates(point_dict, scale)
-		points2d.append(Vector2(world.x, world.z))
-		top_vertices.append(Vector3(world.x, 0.0, world.z))
-		bottom_vertices.append(Vector3(world.x, -SEA_SURFACE_THICKNESS, world.z))
+		polygon_api.append(Vector2(float(point_dict.get("x", 0.0)), float(point_dict.get("z", 0.0))))
 
-		var sample_depth: float = abs(_sample_depth_for_point(float(point_dict.get("x", 0.0)), float(point_dict.get("z", 0.0)), depth_areas))
-		depth_samples.append(sample_depth)
-		max_depth_sample = max(max_depth_sample, sample_depth)
-
-	if points2d.size() < 3:
+	var bounds := _calculate_polygon_bounds(sanitized)
+	if bounds.is_empty():
 		return null
 
-	var polygon2d := PackedVector2Array(points2d)
-	if Geometry2D.is_polygon_clockwise(polygon2d):
-		points2d.reverse()
-		top_vertices.reverse()
-		bottom_vertices.reverse()
-		polygon2d = PackedVector2Array(points2d)
+	var width: float = max(bounds.get("max_x", 0.0) - bounds.get("min_x", 0.0), 0.01)
+	var depth_span: float = max(bounds.get("max_z", 0.0) - bounds.get("min_z", 0.0), 0.01)
 
-	var indices := Geometry2D.triangulate_polygon(polygon2d)
-	if indices.is_empty():
-		return null
+	var resolution_x: int = clamp(int(width * 1.2), 24, 200)
+	var resolution_z: int = clamp(int(depth_span * 1.2), 24, 200)
+
+	var step_x: float = width / float(resolution_x)
+	var step_z: float = depth_span / float(resolution_z)
+
+	var samples: Array = []
+	var min_depth := INF
+	var max_depth := -INF
+
+	for x_index in range(resolution_x + 1):
+		var row: Array = []
+		for z_index in range(resolution_z + 1):
+			var local_x: float = bounds.get("min_x", 0.0) + step_x * float(x_index)
+			var local_z: float = bounds.get("min_z", 0.0) + step_z * float(z_index)
+			var inside_polygon := Geometry2D.is_point_in_polygon(Vector2(local_x, local_z), polygon_api)
+			var depth_value: float = abs(_sample_depth_for_point(local_x, local_z, depth_areas))
+			min_depth = min(min_depth, depth_value)
+			max_depth = max(max_depth, depth_value)
+			var top_point := _api_to_world_surface_point(local_x, local_z, scale)
+			var bottom_point := top_point + Vector3(0.0, -SEA_SURFACE_THICKNESS, 0.0)
+			row.append({
+				"pos": Vector2(local_x, local_z),
+				"top": top_point,
+				"bottom": bottom_point,
+				"depth": depth_value,
+				"inside": inside_polygon
+			})
+		samples.append(row)
+	
+
+	if min_depth == INF:
+		min_depth = 0.0
+	if max_depth <= min_depth:
+		max_depth = min_depth + 0.001
+	var depth_range: float = max(max_depth - min_depth, 0.001)
+
+	for x_index in range(samples.size()):
+		for z_index in range(samples[x_index].size()):
+			var sample: Dictionary = samples[x_index][z_index]
+			sample["color"] = _depth_to_color(float(sample.get("depth", 0.0)), min_depth, depth_range)
+	
 
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	var color_lookup: Array = []
-	var depth_denominator: float = max(max_depth_sample, 0.001)
-	for sample in depth_samples:
-		var normalized: float = clamp(sample / depth_denominator, 0.0, 1.0)
-		color_lookup.append(Color(normalized, normalized, normalized, 1.0))
+	for x_index in range(resolution_x):
+		for z_index in range(resolution_z):
+			var v00: Dictionary = samples[x_index][z_index]
+			var v10: Dictionary = samples[x_index + 1][z_index]
+			var v11: Dictionary = samples[x_index + 1][z_index + 1]
+			var v01: Dictionary = samples[x_index][z_index + 1]
 
-	for i in range(0, indices.size(), 3):
-		var idx0: int = indices[i]
-		var idx1: int = indices[i + 1]
-		var idx2: int = indices[i + 2]
+			if _triangle_overlaps_polygon(v00, v10, v11, polygon_api):
+				_add_sea_surface_triangle(st, v00, v10, v11)
+				_add_sea_surface_triangle_bottom(st, v00, v10, v11)
 
-		st.set_color(color_lookup[idx0])
-		st.add_vertex(top_vertices[idx0])
-		st.set_color(color_lookup[idx1])
-		st.add_vertex(top_vertices[idx1])
-		st.set_color(color_lookup[idx2])
-		st.add_vertex(top_vertices[idx2])
+			if _triangle_overlaps_polygon(v00, v11, v01, polygon_api):
+				_add_sea_surface_triangle(st, v00, v11, v01)
+				_add_sea_surface_triangle_bottom(st, v00, v11, v01)
+	
 
-		st.set_color(color_lookup[idx2])
-		st.add_vertex(bottom_vertices[idx2])
-		st.set_color(color_lookup[idx1])
-		st.add_vertex(bottom_vertices[idx1])
-		st.set_color(color_lookup[idx0])
-		st.add_vertex(bottom_vertices[idx0])
+	var boundary_top: Array = []
+	var boundary_bottom: Array = []
+	var boundary_colors: Array = []
+	for point_dict in sanitized:
+		var top_point := _api_to_world_surface_point(float(point_dict.get("x", 0.0)), float(point_dict.get("z", 0.0)), scale)
+		var bottom_point := top_point + Vector3(0.0, -SEA_SURFACE_THICKNESS, 0.0)
+		var depth_value: float = abs(_sample_depth_for_point(float(point_dict.get("x", 0.0)), float(point_dict.get("z", 0.0)), depth_areas))
+		boundary_top.append(top_point)
+		boundary_bottom.append(bottom_point)
+		boundary_colors.append(_depth_to_color(depth_value, min_depth, depth_range))
 
-	for idx in range(top_vertices.size()):
-		var next := (idx + 1) % top_vertices.size()
-		var top_a: Vector3 = top_vertices[idx]
-		var top_b: Vector3 = top_vertices[next]
-		var bottom_a: Vector3 = bottom_vertices[idx]
-		var bottom_b: Vector3 = bottom_vertices[next]
-		var color_a: Color = color_lookup[idx]
-		var color_b: Color = color_lookup[next]
-		_add_quad_surface(st, top_a, top_b, bottom_b, bottom_a, color_a, color_b)
+	for idx in range(boundary_top.size()):
+		var next := (idx + 1) % boundary_top.size()
+		var color_a: Color = boundary_colors[idx]
+		var color_b: Color = boundary_colors[next]
+		_add_quad_surface(st, boundary_top[idx], boundary_top[next], boundary_bottom[next], boundary_bottom[idx], color_a, color_b)
 
 	st.generate_normals()
 	var mesh := st.commit()
@@ -288,6 +310,51 @@ func _create_water_polygon_mesh(polygon_points: Array, scale: int, sea_material:
 		mesh_instance.material_override = sea_material
 
 	return mesh_instance
+
+func _add_sea_surface_triangle(st: SurfaceTool, a: Dictionary, b: Dictionary, c: Dictionary) -> void:
+	var color_a: Color = a.get("color", Color.WHITE)
+	var color_b: Color = b.get("color", Color.WHITE)
+	var color_c: Color = c.get("color", Color.WHITE)
+
+	st.set_color(color_a)
+	st.add_vertex(a.get("top"))
+	st.set_color(color_b)
+	st.add_vertex(b.get("top"))
+	st.set_color(color_c)
+	st.add_vertex(c.get("top"))
+
+func _add_sea_surface_triangle_bottom(st: SurfaceTool, a: Dictionary, b: Dictionary, c: Dictionary) -> void:
+	var color_a: Color = a.get("color", Color.WHITE)
+	var color_b: Color = b.get("color", Color.WHITE)
+	var color_c: Color = c.get("color", Color.WHITE)
+
+	st.set_color(color_c)
+	st.add_vertex(c.get("bottom"))
+	st.set_color(color_b)
+	st.add_vertex(b.get("bottom"))
+	st.set_color(color_a)
+	st.add_vertex(a.get("bottom"))
+
+func _triangle_overlaps_polygon(a: Dictionary, b: Dictionary, c: Dictionary, polygon: PackedVector2Array) -> bool:
+	if polygon.is_empty():
+		return true
+	if bool(a.get("inside", false)) or bool(b.get("inside", false)) or bool(c.get("inside", false)):
+		return true
+	var centroid: Vector2 = (a.get("pos", Vector2.ZERO) + b.get("pos", Vector2.ZERO) + c.get("pos", Vector2.ZERO)) / 3.0
+	return Geometry2D.is_point_in_polygon(centroid, polygon)
+
+func _api_to_world_surface_point(local_x: float, local_z: float, scale: int) -> Vector3:
+	var api_coords := {
+		"x": local_x,
+		"y": 0.0,
+		"z": local_z
+	}
+	var converted := MapManager.api_to_godot_coordinates(api_coords, scale)
+	return Vector3(converted.x, 0.0, converted.z)
+
+func _depth_to_color(depth_value: float, min_depth: float, depth_range: float) -> Color:
+	var normalized: float = clamp((depth_value - min_depth) / depth_range, 0.0, 1.0)
+	return Color(normalized, normalized, normalized, normalized)
 func generate_seafloor(depth_areas: Array, seaare_polygon: Array, scale: int) -> MeshInstance3D:
 	if depth_areas.is_empty() or seaare_polygon.is_empty():
 		return null
@@ -672,7 +739,7 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 		var top_b: Vector3 = top_vertices[next]
 		var bottom_a: Vector3 = bottom_vertices[idx]
 		var bottom_b: Vector3 = bottom_vertices[next]
-		_add_quad_surface(st, top_a, top_b, bottom_b, bottom_a)
+		_add_quad_surface(st, top_a, top_b, bottom_b, bottom_a, Color.WHITE, Color.WHITE, false)
 
 	st.generate_normals()
 	var mesh := st.commit()
@@ -993,18 +1060,33 @@ func generate_boundary_barrier(seaare_polygon: Array, scale: int) -> Node3D:
 
 	return boundary_root
 
-func _add_quad_surface(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color_a: Color = Color(1, 1, 1, 1), color_b: Color = Color(1, 1, 1, 1)) -> void:
-	st.set_color(color_a)
+func _add_quad_surface(
+	st: SurfaceTool,
+	a: Vector3,
+	b: Vector3,
+	c: Vector3,
+	d: Vector3,
+	color_a: Color = Color(1, 1, 1, 1),
+	color_b: Color = Color(1, 1, 1, 1),
+	use_color: bool = true
+) -> void:
+	if use_color:
+		st.set_color(color_a)
 	st.add_vertex(a)
-	st.set_color(color_b)
+	if use_color:
+		st.set_color(color_b)
 	st.add_vertex(b)
-	st.set_color(color_b)
+	if use_color:
+		st.set_color(color_b)
 	st.add_vertex(c)
-	st.set_color(color_a)
+	if use_color:
+		st.set_color(color_a)
 	st.add_vertex(a)
-	st.set_color(color_b)
+	if use_color:
+		st.set_color(color_b)
 	st.add_vertex(c)
-	st.set_color(color_a)
+	if use_color:
+		st.set_color(color_a)
 	st.add_vertex(d)
 
 func _create_static_body_from_mesh(mesh: Mesh) -> StaticBody3D:
