@@ -20,6 +20,7 @@ const LAND_BASE_HEIGHT_MAX_M := 15.0
 const LAND_SLOPE_RATIO_DEFAULT := 0.12
 const LAND_EDGE_BLEND_M_DEFAULT := 60.0
 const LAND_HEIGHT_MULTIPLIER := 1.6
+const LAND_HEIGHT_EXTRA_M := 4.0
 const LAND_COLUMN_DEPTH_M := 18.0
 const LAND_COLUMN_MODE := true
 const BARRIER_HEIGHT := 25.0
@@ -27,6 +28,7 @@ const BARRIER_DEPTH_OFFSET := -6.0
 const BARRIER_COLOR_BOTTOM := Color(0.08, 0.15, 0.23, 0.65)
 const BARRIER_COLOR_TOP := Color(0.2, 0.28, 0.36, 0.0)
 const SEA_SURFACE_THICKNESS := 0.5
+const SEA_SURFACE_LEVEL_M := 0.0
 const DEFAULT_LAND_BOTTOM_OFFSET := -2.0
 #alt scriptler 
 const SeaGeneratorModule := preload("res://Scripts/WORLD_sc/generators/SeaGenerator.gd")
