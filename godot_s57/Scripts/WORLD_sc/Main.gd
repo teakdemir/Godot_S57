@@ -1,3 +1,4 @@
+# res://scripts/WORLD_sc/Main.gd
 extends Node3D
 
 var http_client: S57HTTPClient
@@ -145,16 +146,12 @@ func hide_ui_show_3d():
 
 func show_ui_hide_3d():
 	ui_canvas.visible = true
-	camera_controller.set_process(false)
-	camera_controller.set_physics_process(false)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	camera_controller.is_mouse_captured = false
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel"):
-		if ui_canvas.visible:
-			hide_ui_show_3d()
-		else:
+		if not ui_canvas.visible:
 			show_ui_hide_3d()
 		return
 	

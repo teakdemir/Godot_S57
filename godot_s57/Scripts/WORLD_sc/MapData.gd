@@ -1,4 +1,5 @@
 extends Node
+# res://scripts/WORLD_sc/MapData.gd
 class_name MapData
 
 # Chart information from API
