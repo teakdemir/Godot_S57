@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://dfv27ayumtthl" path="res://prefab/objects/hazards/uwtroc/Rock Medium.glb" id="1_dim1k"]
 
 [node name="wrocks" type="Node3D"]
+transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)
 
 [node name="RockMedium" parent="." instance=ExtResource("1_dim1k")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0)
+transform = Transform3D(0.25, 0, 0, 0, 0.25, 0, 0, 0, 0.25, 0, -0.35, 0)

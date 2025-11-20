@@ -1,7 +1,8 @@
 [gd_scene load_steps=2 format=3 uid="uid://qcqkl65lb2cy"]
 
-[ext_resource type="PackedScene" uid="uid://dhcbx2w82dkh5" path="res://prefab/objects/hazards/obstrn/Mountain Group.glb" id="1_5js8n"]
+[ext_resource type="PackedScene" uid="uid://bd4ytmiaxkm32" path="res://prefab/objects/hazards/obstrn/Mountain Group.glb" id="1_5js8n"]
 
 [node name="obstrn" type="Node3D"]
 
 [node name="MountainGroup" parent="." instance=ExtResource("1_5js8n")]
+transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
