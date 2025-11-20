@@ -27,6 +27,7 @@ emission_enabled = true
 emission = Color(0.101961, 0.156863, 0.07451, 1)
 emission_energy_multiplier = 0.25
 normal_enabled = true
+normal_scale = 16.0
 normal_texture = SubResource("NoiseTexture2D_e2oxy")
 refraction_enabled = true
 refraction_texture = SubResource("NoiseTexture2D_7vift")
