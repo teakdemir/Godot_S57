@@ -1,11 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://ttbhwotg8g80"]
+[gd_scene load_steps=2 format=3 uid="uid://ttbhwotg8g80"]
 
-[ext_resource type="Material" uid="uid://7t8r5f3evviw" path="res://Materials/WORLD_mat/HazardsMaterial.tres" id="1_sq3vd"]
+[ext_resource type="PackedScene" uid="uid://dfv27ayumtthl" path="res://prefab/objects/hazards/uwtroc/Rock Medium.glb" id="1_dim1k"]
 
-[sub_resource type="SphereMesh" id="SphereMesh_84la4"]
-material = ExtResource("1_sq3vd")
+[node name="wrocks" type="Node3D"]
 
-[node name="wrocks" type="MeshInstance3D"]
-transform = Transform3D(1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0)
-material_override = ExtResource("1_sq3vd")
-mesh = SubResource("SphereMesh_84la4")
+[node name="RockMedium" parent="." instance=ExtResource("1_dim1k")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0)

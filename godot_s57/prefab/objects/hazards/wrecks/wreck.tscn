@@ -1,10 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://dr562nif54sya"]
+[gd_scene load_steps=2 format=3 uid="uid://dr562nif54sya"]
 
-[ext_resource type="Material" uid="uid://7t8r5f3evviw" path="res://Materials/WORLD_mat/HazardsMaterial.tres" id="1_ktrwg"]
+[ext_resource type="PackedScene" uid="uid://c6i5rc87exic0" path="res://prefab/objects/hazards/wrecks/Ship Wreck.glb" id="1_h0p56"]
 
-[sub_resource type="PrismMesh" id="PrismMesh_2kmso"]
+[node name="wreck" type="Node3D"]
 
-[node name="wreck" type="MeshInstance3D"]
-transform = Transform3D(2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-material_override = ExtResource("1_ktrwg")
-mesh = SubResource("PrismMesh_2kmso")
+[node name="ShipWreck" parent="." instance=ExtResource("1_h0p56")]
+transform = Transform3D(0.0625, 0, 0, 0, 0.0625, 0, 0, 0, 0.0625, 0, -1.2, 0)

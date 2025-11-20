@@ -1,7 +1,7 @@
 [gd_scene load_steps=2 format=3 uid="uid://g21ywiymk8r1"]
 
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_w0qf2"]
+[ext_resource type="PackedScene" uid="uid://d38p8lnoymu1h" path="res://prefab/objects/harbours/Port.glb" id="1_rbcpi"]
 
-[node name="harbour" type="MeshInstance3D"]
-transform = Transform3D(100, 0, 0, 0, 100, 0, 0, 0, 100, 0, 0, 0)
-mesh = SubResource("CapsuleMesh_w0qf2")
+[node name="harbour" type="Node3D"]
+
+[node name="Port" parent="." instance=ExtResource("1_rbcpi")]

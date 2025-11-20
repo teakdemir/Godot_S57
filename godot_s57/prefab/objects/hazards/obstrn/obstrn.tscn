@@ -1,10 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://qcqkl65lb2cy"]
+[gd_scene load_steps=2 format=3 uid="uid://qcqkl65lb2cy"]
 
-[ext_resource type="Material" uid="uid://7t8r5f3evviw" path="res://Materials/WORLD_mat/HazardsMaterial.tres" id="1_ejljb"]
+[ext_resource type="PackedScene" uid="uid://dhcbx2w82dkh5" path="res://prefab/objects/hazards/obstrn/Mountain Group.glb" id="1_5js8n"]
 
-[sub_resource type="BoxMesh" id="BoxMesh_2kmso"]
+[node name="obstrn" type="Node3D"]
 
-[node name="obstrn" type="MeshInstance3D"]
-transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0)
-material_override = ExtResource("1_ejljb")
-mesh = SubResource("BoxMesh_2kmso")
+[node name="MountainGroup" parent="." instance=ExtResource("1_5js8n")]

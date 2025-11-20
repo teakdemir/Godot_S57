@@ -1,10 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://bgbrph0q7itfv"]
+[gd_scene load_steps=2 format=3 uid="uid://bgbrph0q7itfv"]
 
-[ext_resource type="Material" uid="uid://diajd7hxipo5g" path="res://Materials/WORLD_mat/LigtshMaterial.tres" id="1_jfbkv"]
+[ext_resource type="PackedScene" uid="uid://dmhk7m40cmeur" path="res://prefab/objects/navigation/ligths/Lighthouse.glb" id="1_4wawr"]
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_84la4"]
+[node name="Ligth" type="Node3D"]
 
-[node name="Ligth" type="MeshInstance3D"]
-transform = Transform3D(1, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0)
-material_override = ExtResource("1_jfbkv")
-mesh = SubResource("CylinderMesh_84la4")
+[node name="Lighthouse" parent="." instance=ExtResource("1_4wawr")]
+transform = Transform3D(0.11875, 0, 0, 0, 0.234375, 0, 0, 0, 0.11875, 0, -1, 0)
