@@ -70,11 +70,18 @@ func _instantiate_navigation_object(obj_data: Dictionary, scale: int) -> Node3D:
 
 	instance.position = Vector3(horizontal.x, y_value + y_offset, horizontal.z)
 
+	var base_scale := instance.scale
 	if not definition.is_empty() and definition.has("scale"):
-		instance.scale = definition["scale"]
+		base_scale = definition["scale"]
+		instance.scale = base_scale
 
 	if not definition.is_empty():
 		_apply_definition_materials(instance, definition)
+
+	if obj_type == "hrbfac":
+		_align_with_water_heading(instance, obj_data)
+	elif obj_type == "bridge":
+		_configure_bridge_span(instance, obj_data, scale, definition, base_scale)
 
 	return instance
 
@@ -99,3 +106,71 @@ func _apply_definition_materials(instance: Node3D, definition: Dictionary) -> vo
 			(target as MeshInstance3D).material_override = material
 
 # Prefab bulunamadiginda basit silindir marker olusturur.
+
+func _align_with_water_heading(instance: Node3D, obj_data: Dictionary) -> void:
+	var orientation_variant = obj_data.get("orientation", null)
+	if not (orientation_variant is Dictionary):
+		return
+	var orientation: Dictionary = orientation_variant
+	if not orientation.has("heading_deg"):
+		return
+	var heading_deg := float(orientation["heading_deg"])
+	instance.rotation.y = deg_to_rad(heading_deg)
+
+func _configure_bridge_span(
+	instance: Node3D,
+	obj_data: Dictionary,
+	scale: int,
+	definition: Dictionary,
+	base_scale: Vector3
+) -> void:
+	var span_variant = obj_data.get("span", null)
+	if not (span_variant is Dictionary):
+		return
+	var span: Dictionary = span_variant
+	var start_variant = span.get("start")
+	var end_variant = span.get("end")
+	if not (start_variant is Dictionary) or not (end_variant is Dictionary):
+		return
+
+	var start_point: Vector3 = _span_point_to_world(start_variant, obj_data, scale)
+	var end_point: Vector3 = _span_point_to_world(end_variant, obj_data, scale)
+	var direction := end_point - start_point
+	var horizontal := Vector2(direction.x, direction.z)
+	if horizontal.length() <= 0.01:
+		return
+
+	var midpoint := (start_point + end_point) * 0.5
+	instance.position = Vector3(midpoint.x, instance.position.y, midpoint.z)
+	instance.rotation.y = atan2(direction.x, direction.z)
+
+	var target_length := horizontal.length()
+	var native_length := float(definition.get("native_length", 1.0))
+	if native_length <= 0.001:
+		native_length = 1.0
+	var stretch_ratio := target_length / native_length
+
+	var axis := String(definition.get("span_axis", "x")).to_lower()
+	var new_scale := base_scale
+	match axis:
+		"x":
+			new_scale.x = max(0.01, base_scale.x * stretch_ratio)
+		"z":
+			new_scale.z = max(0.01, base_scale.z * stretch_ratio)
+		"y":
+			new_scale.y = max(0.01, base_scale.y * stretch_ratio)
+		_:
+			new_scale.x = max(0.01, base_scale.x * stretch_ratio)
+	instance.scale = new_scale
+
+func _span_point_to_world(span_point: Dictionary, obj_data: Dictionary, scale: int) -> Vector3:
+	var base_y := 0.0
+	var position_variant = obj_data.get("position", null)
+	if position_variant is Dictionary:
+		base_y = float(position_variant.get("y", 0.0))
+	var coords := {
+		"x": span_point.get("x", 0.0),
+		"y": base_y,
+		"z": span_point.get("z", 0.0)
+	}
+	return MapManager.api_to_godot_coordinates(coords, scale)

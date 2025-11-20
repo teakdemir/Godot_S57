@@ -42,13 +42,12 @@ const OBJECT_DEFINITIONS := {
 		"material": "res://materials/WORLD_mat/HarborMaterial.tres",
 		"material_node": "harbour",
 		"scale": Vector3(5, 5, 5),
-		"y_offset": 5.0
-	},
-	"slcons": {
-		"prefab": "res://prefab/objects/shoreline/slcons.tscn"
+		"y_offset": 1.5
 	},
 	"bridge": {
-		"prefab": "res://prefab/objects/bridges/bridge.tscn"
+		"prefab": "res://prefab/objects/bridges/bridge.tscn",
+		"span_axis": "x",
+		"native_length": 10.0
 	},
 	"lights": {
 		"prefab": "res://prefab/objects/navigation/ligths/ligth.tscn"
