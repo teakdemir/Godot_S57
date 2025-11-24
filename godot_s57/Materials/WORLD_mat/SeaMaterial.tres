@@ -25,7 +25,6 @@ shader_parameter/normal_speed_b = 0.05
 shader_parameter/normal_mix = 0.8
 shader_parameter/normal_detail_strength = 0.5
 shader_parameter/height_frequency = 0.02
-shader_parameter/height_direction = Vector2(0.55, 0.78)
 shader_parameter/height_speed = 0.05
 shader_parameter/height_amplitude = 0.7
 shader_parameter/foam_strength = 0.15
