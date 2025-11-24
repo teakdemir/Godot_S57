@@ -1,6 +1,5 @@
 extends RefCounted
 
-# Kara bloklari ve kiyi seritleri icin tum uretim kodunu icerir.
 class_name LandGenerator
 
 var owner: TerrainGenerator
@@ -47,6 +46,10 @@ func build_landmasses(land_polygons: Array, scale: int) -> Node3D:
 	land_root.name = "Landmasses"
 
 	var land_material: Material = owner._load_material(owner.LAND_MATERIAL)
+	# Back-face Culling'i kapat (Duvarların içini de çizsin)
+	if land_material:
+		land_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+
 	var created_meshes := 0
 
 	for land_variant in land_polygons:
@@ -237,7 +240,7 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 	if world_points.size() < 3:
 		return null
 
-	# Sahil konturunu ve ileri i�lem icin gerekli halkay� haz�rla.
+	# Sahil konturunu ve ileri islem icin gerekli halkayi hazirla.
 	var coast_planar: Array[Vector2] = _build_planar_loop(world_points)
 	var polygon2d := PackedVector2Array(coast_planar)
 	if Geometry2D.is_polygon_clockwise(polygon2d):
@@ -245,7 +248,7 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 		coast_planar = _build_planar_loop(world_points)
 		polygon2d = PackedVector2Array(coast_planar)
 
-	# Slope ve plato hesaplar� ayn� merkezden beslenecek.
+	# Slope ve plato hesaplari ayni merkezden beslenecek.
 	var centroid: Vector2 = _calculate_planar_centroid(coast_planar)
 	var edge_blend_units: float = max(owner._meters_to_world_units(float(land_props.get("edge_blend_m", owner.LAND_EDGE_BLEND_M_DEFAULT)), scale), 0.1)
 	var plateau_planar: Array[Vector2] = _shrink_loop_towards_centroid(coast_planar, centroid, edge_blend_units * 0.65)
@@ -270,6 +273,7 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 	var bottom_height_units: float = owner._meters_to_height_units(-owner.LAND_COLUMN_DEPTH_M) if owner.LAND_COLUMN_MODE else owner._meters_to_height_units(owner.DEFAULT_LAND_BOTTOM_OFFSET)
 	var base_height_units: float = max(shoreline_height_units, owner._meters_to_height_units(base_height_m * 0.35))
 	var max_height_units: float = max(base_height_units + owner._meters_to_height_units(0.5), owner._meters_to_height_units(max_height_m))
+	
 	# Genel kara seviyesini bir tik yukari ceken ofset.
 	var height_boost_units: float = owner._meters_to_height_units(owner.LAND_HEIGHT_EXTRA_M)
 	base_height_units += height_boost_units
@@ -286,7 +290,7 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 		var height: float = lerp(base_height_units, max_height_units, eased)
 		plateau_vertices.append(Vector3(planar.x, height, planar.y))
 
-	# Sahil hatt�n� ve deniz taban�n� ayn� s�rada sakla ki quad'lar sorunsuz kapans�n.
+	# Sahil hattini ve deniz tabanini ayni sirada sakla ki quad'lar sorunsuz kapansin.
 	var shoreline_vertices: Array[Vector3] = []
 	var bottom_vertices: Array[Vector3] = []
 	for planar: Vector2 in coast_planar:
@@ -348,7 +352,9 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 
 	return land_chunk
 
-# Kara poligonunun d��ey izd���ini Vector2 dizisine d���r�r.
+# --- DÜZELTME: Yardımcı fonksiyonlar SINIF SEVİYESİNDE tanımlandı ---
+
+# Kara poligonunun dusey izdusumunu Vector2 dizisine dusurur.
 func _build_planar_loop(points: Array) -> Array[Vector2]:
 	var loop: Array[Vector2] = []
 	for point in points:
@@ -356,7 +362,7 @@ func _build_planar_loop(points: Array) -> Array[Vector2]:
 			loop.append(Vector2(point.x, point.z))
 	return loop
 
-# 2B nokta bulutunun a�rl�kl� merkezini hesaplar.
+# 2B nokta bulutunun agirlikli merkezini hesaplar.
 func _calculate_planar_centroid(points: Array[Vector2]) -> Vector2:
 	if points.is_empty():
 		return Vector2.ZERO
@@ -365,7 +371,7 @@ func _calculate_planar_centroid(points: Array[Vector2]) -> Vector2:
 		centroid += point
 	return centroid / points.size()
 
-# Sahil band�n� merkeze do�ru kayd�rarak i� plato halkas� olu�turur.
+# Sahil bandini merkeze dogru kaydirarak ic plato halkasi olusturur.
 func _shrink_loop_towards_centroid(points: Array[Vector2], centroid: Vector2, distance: float) -> Array[Vector2]:
 	if points.is_empty() or distance <= 0.0:
 		return []
@@ -380,7 +386,7 @@ func _shrink_loop_towards_centroid(points: Array[Vector2], centroid: Vector2, di
 		shrunken.append(point + direction.normalized() * offset)
 	return shrunken
 
-# Verilen halkadaki merkezden en uzak uzakl��� bulur.
+# Verilen halkadaki merkezden en uzak uzakligi bulur.
 func _calculate_max_distance(points: Array[Vector2], centroid: Vector2) -> float:
 	var max_distance: float = 0.0
 	for point: Vector2 in points:
