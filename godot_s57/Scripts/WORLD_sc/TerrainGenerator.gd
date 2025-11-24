@@ -1,7 +1,7 @@
 class_name TerrainGenerator
 extends Node
 
-# --- MEVCUT SABİTLER (Aynen Korundu) ---
+# --- SABİTLER ---
 const SEA_FLOOR_MATERIAL := "res://Materials/WORLD_mat/SeaFloorMaterial.tres"
 const SEA_SURFACE_MATERIAL := "res://Materials/WORLD_mat/SeaMaterial.tres"
 const SEA_FLOOR_DEPTH_SCALE := 2.0
@@ -78,7 +78,7 @@ func _init() -> void:
 	_object_generator = ObjectGeneratorModule.new(self)
 	_boundary_generator = BoundaryGeneratorModule.new(self)
 
-# --- GÜNCELLENMİŞ ANA FONKSİYON ---
+# --- ANA FONKSİYON ---
 func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	var environment_root := Node3D.new()
 	environment_root.name = "MapEnvironment"
@@ -126,10 +126,10 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 		if land_variant is Array:
 			land_polygons_data = land_variant
 	
-	# Karayı genişlet (Denizden çıkaracağımız alan bu genişletilmiş alan olmalı)
+	# Karayı genişlet
 	var extended_land_polygons_data := _land_generator.extend_land_polygons(land_polygons_data, MAP_EXTENSION_FACTOR)
 
-	# 3. CLIPPING İŞLEMİ (YENİ - FIX)
+	# 3. CLIPPING İŞLEMİ
 	# Denizden karayı çıkarıp "Delikli Deniz" elde ediyoruz.
 	var clipped_sea_polygons = _clip_land_from_sea(extended_sea_polygons, extended_land_polygons_data)
 
@@ -148,7 +148,7 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 
 	# 4. İnşa Etme (Build)
 	
-	# Deniz yüzeyi için ARTIK 'clipped_sea_polygons' kullanıyoruz (Karanın altı boş)
+	# Deniz yüzeyi için 'clipped_sea_polygons' kullanıyoruz (Karanın altı boş)
 	var sea_surface: Node3D = _sea_generator.build_surface(clipped_sea_polygons, boundary_base_polygon, depth_areas, scale)
 	if sea_surface:
 		environment_root.add_child(sea_surface)
@@ -180,7 +180,7 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 
 	return environment_root
 
-# --- YARDIMCI FONKSİYONLAR (MEVCUT VE YENİLER) ---
+# --- YARDIMCI FONKSİYONLAR ---
 
 func _calculate_polygon_bounds(points: Array) -> Dictionary:
 	if points.is_empty(): return {}
@@ -303,21 +303,32 @@ func _expand_polygon_collection(polygons: Array, factor: float) -> Array:
 func _sanitize_sea_polygon(points: Array) -> Array:
 	return _sanitize_polygon(points)
 
-# --- YENİ CLIPPING FONKSİYONLARI ---
+# --- CLIPPING FONKSİYONLARI (Overlap Fix) ---
 
 # Deniz poligonlarından kara poligonlarını çıkaran ana fonksiyon
 func _clip_land_from_sea(sea_polygons: Array, land_data_entries: Array) -> Array:
 	# 1. Tüm kara poligonlarını Geometry2D formatına (PackedVector2Array) çevir
 	var land_shapes: Array[PackedVector2Array] = []
 	
+	# OVERLAP AYARI: Bu değer kadar denizi karanın içine sokacağız (Godot biriminde negatif offset)
+	var clipping_offset = -0.2 
+	
 	for entry in land_data_entries:
 		var land_dict = entry as Dictionary
 		var polys = land_dict.get("polygons", [])
 		for poly in polys:
 			var sanitized = _sanitize_polygon(poly)
-			var vec2_arr = _dict_array_to_packed_vector2(sanitized)
-			if vec2_arr.size() >= 3:
-				land_shapes.append(vec2_arr)
+			# Karayı Geometry2D formatına al
+			var original_poly = _dict_array_to_packed_vector2(sanitized)
+			
+			# Kara poligonunu biraz "büzüştür" (shrink).
+			# Böylece biz denizden bu "küçülmüş" karayı kestiğimizde,
+			# deniz aslında gerçek karanın birazcık altına girmiş olacak.
+			var shrunk_polys = Geometry2D.offset_polygon(original_poly, clipping_offset)
+			
+			for shrunk_poly in shrunk_polys:
+				if shrunk_poly.size() >= 3:
+					land_shapes.append(shrunk_poly)
 	
 	# 2. Deniz poligonlarını işle
 	var final_sea_polygons: Array = []

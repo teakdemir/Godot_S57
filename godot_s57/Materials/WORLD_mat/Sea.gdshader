@@ -1,6 +1,7 @@
 shader_type spatial;
-render_mode blend_mix, specular_schlick_ggx, cull_back;
+render_mode blend_mix, specular_schlick_ggx, cull_back, depth_draw_opaque;
 
+// --- MEVCUT UNIFORM'LAR ---
 uniform vec3 shallow_color : source_color = vec3(0.18, 0.63, 0.79);
 uniform vec3 deep_color : source_color = vec3(0.05, 0.15, 0.28);
 uniform float depth_power : hint_range(0.2, 4.0, 0.05) = 1.4;
@@ -9,6 +10,14 @@ uniform sampler2D normal_map_a : hint_normal, repeat_enable, filter_linear_mipma
 uniform sampler2D normal_map_b : hint_normal, repeat_enable, filter_linear_mipmap;
 uniform sampler2D height_map : repeat_enable, filter_linear_mipmap;
 uniform sampler2D SCREEN_TEXTURE : hint_screen_texture, filter_linear_mipmap;
+
+// --- YENİ EKLENEN: DEPTH TEXTURE ---
+uniform sampler2D depth_texture : hint_depth_texture, filter_linear_mipmap;
+
+// --- YENİ EKLENEN: KIYI YUMUŞATMA AYARLARI ---
+uniform float shore_fade_distance : hint_range(0.0, 5.0, 0.1) = 1.0; // Kıyı şeffaflık mesafesi
+uniform float shore_foam_distance : hint_range(0.0, 2.0, 0.1) = 0.5; // Kıyı köpük genişliği
+uniform float shore_foam_strength : hint_range(0.0, 2.0, 0.1) = 1.2; // Kıyı köpük parlaklığı
 
 uniform float normal_frequency : hint_range(0.001, 0.15, 0.001) = 0.035;
 uniform vec2 normal_direction_a = vec2(1.0, 0.25);
@@ -52,11 +61,11 @@ vec2 rotate_uv(vec2 uv, vec2 direction) {
 }
 
 void vertex() {
+	// Senin mevcut Vertex Color'dan gelen derinlik verin (bunu koruyoruz)
 	float depth_norm = clamp(COLOR.r, 0.0, 1.0);
 	v_depth_norm = depth_norm;
 
 	vec3 world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-
 	vec2 height_uv = world_pos.xz * height_frequency + height_direction * (TIME * height_speed);
 	float height_sample = texture(height_map, height_uv).r;
 	float height_offset = (height_sample - 0.5) * height_amplitude;
@@ -69,6 +78,7 @@ void vertex() {
 }
 
 void fragment() {
+	// --- MEVCUT RENK VE NORMAL HESAPLAMALARI ---
 	float depth_norm = clamp(v_depth_norm, 0.0, 1.0);
 	float shallow_factor = pow(1.0 - depth_norm, depth_power);
 	vec3 base_color = mix(deep_color, shallow_color, shallow_factor);
@@ -95,18 +105,58 @@ void fragment() {
 	float fresnel_mix = mix(0.05, 1.0, clamp(fresnel, 0.0, 1.0));
 	base_color = mix(base_color, reflection_color, reflection_strength * fresnel_mix);
 
-	float wave_intensity = smoothstep(foam_bias, foam_bias + foam_width, abs(v_wave_height));
-	float foam_factor = foam_strength * wave_intensity * (1.0 - depth_norm);
-	base_color = mix(base_color, base_color + foam_color * 0.35, foam_factor);
+	// --- YENİ EKLENEN: DERİNLİK VE YUMUŞATMA (DEPTH FADE) ---
 
+	// 1. Derinlik Texture'ını oku (Depth Buffer)
+	float depth_tex = texture(depth_texture, SCREEN_UV).x;
+	// 2. Linear Derinliğe çevir (Kamera Z'si)
+	vec3 ndc = vec3(SCREEN_UV * 2.0 - 1.0, depth_tex);
+	vec4 view = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
+	view.xyz /= view.w;
+	float linear_scene_depth = -view.z;
+	float linear_surface_depth = FRAGCOORD.z / FRAGCOORD.w; // Alternatif hesaplama gerekebilir ama Godot 4 için VERTEX.z yeterli
+
+	// Daha basit ve güvenilir Godot 4.x derinlik farkı hesabı:
+	// VERTEX.z (View Space'teki Z) negatiftir.
+	// Linear Scene Depth pozitiftir (genelde).
+	// Fark = Sahne Derinliği - Su Yüzeyi Derinliği
+	float depth_diff = linear_scene_depth - linear_surface_depth;
+	// Eğer VERTEX.z ile sorun yaşarsan: depth_diff = linear_scene_depth - (1.0 / FRAGCOORD.w);
+
+	// 3. Kıyı Şeffaflığı (Fade)
+	// depth_diff küçükse (kıyıya yakınsa) alpha 0'a yaklaşır.
+	float shore_alpha = clamp(depth_diff / shore_fade_distance, 0.0, 1.0);
+	shore_alpha = pow(shore_alpha, 0.5); // Daha yumuşak geçiş için
+
+	// 4. Kıyı Köpüğü (Shore Foam)
+	// Kıyıya çok yakın yerlerde (shore_foam_distance) beyazlık ekle
+	float shore_foam_factor = clamp(1.0 - (depth_diff / shore_foam_distance), 0.0, 1.0);
+	shore_foam_factor = pow(shore_foam_factor, 2.0); // Keskinleştir
+
+	// Mevcut Dalga Köpüğü ile Kıyı Köpüğünü Birleştir
+	float wave_intensity = smoothstep(foam_bias, foam_bias + foam_width, abs(v_wave_height));
+	float wave_foam_factor = foam_strength * wave_intensity * (1.0 - depth_norm);
+
+	// Toplam köpük
+	float total_foam = clamp(wave_foam_factor + (shore_foam_factor * shore_foam_strength), 0.0, 1.0);
+
+	// Rengi Köpükle Karıştır
+	base_color = mix(base_color, foam_color, total_foam);
+
+	// --- ÇIKIŞ ---
 	float lighting = 0.35 + diffuse * 0.25;
 	ALBEDO = base_color * lighting;
 	SPECULAR = specular_strength;
 	ROUGHNESS = clamp(base_roughness + (1.0 - fresnel) * 0.05, 0.03, 1.0);
 	METALLIC = 0.0;
-	EMISSION = foam_color * foam_factor * foam_emission_strength;
 
-	float transparency = mix(transparency_deep, transparency_shallow, pow(1.0 - depth_norm, 1.3));
-	ALPHA = clamp(1.0 - transparency, 0.2, 0.95);
+	// Köpük parlasın
+	EMISSION = foam_color * total_foam * foam_emission_strength;
+
+	// Mevcut transparanlık mantığını Kıyı Fade ile çarp
+	float base_transparency_val = mix(transparency_deep, transparency_shallow, pow(1.0 - depth_norm, 1.3));
+	float base_alpha = clamp(1.0 - base_transparency_val, 0.2, 0.95);
+
+	// Son Alpha: Hem derinliğe göre hem de kıyı yakınlığına göre şeffaflaş
+	ALPHA = base_alpha * shore_alpha;
 }
-

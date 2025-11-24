@@ -6,7 +6,7 @@
 [ext_resource type="Texture2D" uid="uid://6da2iecbj6ho" path="res://Materials/WORLD_mat/water_height_map.tres" id="4"]
 
 [resource]
-render_priority = 0
+render_priority = 1
 shader = ExtResource("1")
 shader_parameter/shallow_color = Color(0.274098, 0.740655, 0.928462, 1)
 shader_parameter/deep_color = Color(0.0627451, 0.176471, 0.541176, 1)
@@ -14,6 +14,9 @@ shader_parameter/depth_power = 2.0
 shader_parameter/normal_map_a = ExtResource("2")
 shader_parameter/normal_map_b = ExtResource("3")
 shader_parameter/height_map = ExtResource("4")
+shader_parameter/shore_fade_distance = 5.0
+shader_parameter/shore_foam_distance = 1.0
+shader_parameter/shore_foam_strength = 1.2
 shader_parameter/normal_frequency = 0.05
 shader_parameter/normal_direction_a = Vector2(1, 0.25)
 shader_parameter/normal_direction_b = Vector2(-0.45, 1)

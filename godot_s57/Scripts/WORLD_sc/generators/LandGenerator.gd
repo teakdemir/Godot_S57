@@ -4,6 +4,11 @@ class_name LandGenerator
 
 var owner: TerrainGenerator
 
+# --- AYARLAR (Yükseltilmiş Değerler) ---
+const UNDERWATER_SKIRT_WIDTH_M := 250.0 # Su altı genişliği
+const BEACH_SLOPE_WIDTH_M := 150.0     # Sahil eğim genişliği (Artırıldı)
+const PEAK_HEIGHT_BOOST_M := 45.0      # Tepe ek yüksekliği (Ciddi oranda artırıldı)
+
 func _init(owner_ref) -> void:
 	owner = owner_ref
 
@@ -46,7 +51,6 @@ func build_landmasses(land_polygons: Array, scale: int) -> Node3D:
 	land_root.name = "Landmasses"
 
 	var land_material: Material = owner._load_material(owner.LAND_MATERIAL)
-	# Back-face Culling'i kapat (Duvarların içini de çizsin)
 	if land_material:
 		land_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 
@@ -66,7 +70,8 @@ func build_landmasses(land_polygons: Array, scale: int) -> Node3D:
 			if not (polygon_variant is Array):
 				continue
 			var polygon_points: Array = polygon_variant
-			var land_chunk := _create_land_volume_chunk(polygon_points, land_dict, scale, land_material)
+			# Yeni Tepe Noktali Chunk Üretimi
+			var land_chunk := _create_peaked_land_chunk(polygon_points, land_dict, scale, land_material)
 			if land_chunk:
 				land_chunk.name = "LandPolygon_%d" % created_meshes
 				land_root.add_child(land_chunk)
@@ -96,7 +101,7 @@ func build_coastlines(coastlines: Array, scale: int) -> Node3D:
 
 		var segments: Array = segments_variant as Array
 		var ribbon_width_m := float(coastline.get("ribbon_width_m", 40.0))
-		var crest_height_m := float(coastline.get("crest_height_m", owner.COASTLINE_CREST_HEIGHT_DEFAULT))
+		var crest_height_m := float(coastline.get("crest_height_m", owner.COASTLINE_CREST_HEIGHT_DEFAULT)) + 0.2 
 		var coastline_profile = coastline.get("profile", null)
 
 		for segment_variant in segments:
@@ -138,7 +143,6 @@ func build_coastlines(coastlines: Array, scale: int) -> Node3D:
 
 # --- Yardimcilar -------------------------------------------------------------
 
-# Tek bir kiyi segmentini capraz uv'li serit mesh'e cevirir.
 func _create_coastline_mesh(points: Array, scale: int, coastline_material: Material, ribbon_width_m: float, crest_height_m: float, profile_data) -> MeshInstance3D:
 	if points.size() < 2:
 		return null
@@ -162,7 +166,7 @@ func _create_coastline_mesh(points: Array, scale: int, coastline_material: Mater
 	var right_points: Array = []
 	var half_width_world: float = max(owner._meters_to_world_units(ribbon_width_m, scale) * 0.5, owner.COASTLINE_HALF_WIDTH)
 	var crest_height_units: float = max(owner._meters_to_height_units(crest_height_m), owner.COASTLINE_Y_OFFSET)
-	var sea_height: float = 0.0
+	var sea_height: float = owner._meters_to_height_units(-0.5) 
 
 	var land_color := Color(0.94, 0.86, 0.68, 1.0)
 	var water_blend_color := Color(0.35, 0.55, 0.78, 0.85)
@@ -227,8 +231,8 @@ func _create_coastline_mesh(points: Array, scale: int, coastline_material: Mater
 
 	return mesh_instance
 
-# Kara poligonunu ekstrude edip alt kolonlarla destekler.
-func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, scale: int, land_material: Material) -> Node3D:
+# YENILENMIS FONKSIYON: 3 Halkalı + Zirve Noktalı Arazi
+func _create_peaked_land_chunk(polygon_points: Array, land_props: Dictionary, scale: int, land_material: Material) -> Node3D:
 	var sanitized: Array = owner._sanitize_polygon(polygon_points)
 	if sanitized.size() < 3:
 		return null
@@ -240,97 +244,89 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 	if world_points.size() < 3:
 		return null
 
-	# Sahil konturunu ve ileri islem icin gerekli halkayi hazirla.
+	# 1. Halka: KIYI (COAST)
 	var coast_planar: Array[Vector2] = _build_planar_loop(world_points)
 	var polygon2d := PackedVector2Array(coast_planar)
 	if Geometry2D.is_polygon_clockwise(polygon2d):
 		world_points.reverse()
 		coast_planar = _build_planar_loop(world_points)
-		polygon2d = PackedVector2Array(coast_planar)
 
-	# Slope ve plato hesaplari ayni merkezden beslenecek.
 	var centroid: Vector2 = _calculate_planar_centroid(coast_planar)
-	var edge_blend_units: float = max(owner._meters_to_world_units(float(land_props.get("edge_blend_m", owner.LAND_EDGE_BLEND_M_DEFAULT)), scale), 0.1)
-	var plateau_planar: Array[Vector2] = _shrink_loop_towards_centroid(coast_planar, centroid, edge_blend_units * 0.65)
-	if plateau_planar.is_empty():
-		plateau_planar = coast_planar.duplicate()
-
-	var plateau_polygon2d := PackedVector2Array(plateau_planar)
-	if plateau_planar.size() < 3:
-		return null
-
-	var plateau_indices := Geometry2D.triangulate_polygon(plateau_polygon2d)
-	var bottom_indices := Geometry2D.triangulate_polygon(polygon2d)
-	if plateau_indices.is_empty() or bottom_indices.is_empty():
-		return null
-
-	var slope_seed := float(land_props.get("slope_ratio", owner.LAND_SLOPE_RATIO_DEFAULT))
-	var slope_ratio: float = clamp((slope_seed * 0.35) if owner.LAND_COLUMN_MODE else slope_seed, 0.02, 0.95)
-	var base_height_m: float = float(land_props.get("base_height_m", owner.LAND_BASE_HEIGHT_MIN_M)) * owner.LAND_HEIGHT_MULTIPLIER
-	var max_height_m: float = float(land_props.get("max_height_m", owner.LAND_BASE_HEIGHT_MAX_M)) * owner.LAND_HEIGHT_MULTIPLIER
-	var sea_surface_units: float = owner._meters_to_height_units(owner.SEA_SURFACE_LEVEL_M)
-	var shoreline_height_units: float = sea_surface_units + owner._meters_to_height_units(0.05)
-	var bottom_height_units: float = owner._meters_to_height_units(-owner.LAND_COLUMN_DEPTH_M) if owner.LAND_COLUMN_MODE else owner._meters_to_height_units(owner.DEFAULT_LAND_BOTTOM_OFFSET)
-	var base_height_units: float = max(shoreline_height_units, owner._meters_to_height_units(base_height_m * 0.35))
-	var max_height_units: float = max(base_height_units + owner._meters_to_height_units(0.5), owner._meters_to_height_units(max_height_m))
 	
-	# Genel kara seviyesini bir tik yukari ceken ofset.
-	var height_boost_units: float = owner._meters_to_height_units(owner.LAND_HEIGHT_EXTRA_M)
-	base_height_units += height_boost_units
-	max_height_units += height_boost_units
+	# Birim Çevirileri
+	var skirt_width_units: float = owner._meters_to_world_units(UNDERWATER_SKIRT_WIDTH_M, scale)
+	var beach_width_units: float = owner._meters_to_world_units(BEACH_SLOPE_WIDTH_M, scale)
+	
+	# 2. Halka: ETEK (SKIRT - SU ALTI)
+	var skirt_planar_vec2: Array[Vector2] = []
+	for i in range(coast_planar.size()):
+		var p = coast_planar[i]
+		var dir = (p - centroid).normalized()
+		skirt_planar_vec2.append(p + dir * skirt_width_units)
+	
+	# 3. Halka: PLATO KENARI (PLATEAU RIM - OMUZ)
+	var plateau_planar: Array[Vector2] = _shrink_loop_towards_centroid(coast_planar, centroid, beach_width_units)
+	if plateau_planar.is_empty() or plateau_planar.size() < 3:
+		plateau_planar = _shrink_loop_towards_centroid(coast_planar, centroid, beach_width_units * 0.2)
+		if plateau_planar.is_empty():
+			plateau_planar = coast_planar.duplicate()
 
-	var plateau_radius: float = _calculate_max_distance(plateau_planar, centroid)
-	if plateau_radius <= 0.001:
-		plateau_radius = edge_blend_units
+	# Yükseklik Ayarları
+	# Base (Kenar) yüksekliğini de artırıyoruz ki su seviyesinden hemen yükselsin
+	var base_height_m: float = float(land_props.get("base_height_m", owner.LAND_BASE_HEIGHT_MIN_M)) * (owner.LAND_HEIGHT_MULTIPLIER * 1.5) 
+	var max_height_m: float = float(land_props.get("max_height_m", owner.LAND_BASE_HEIGHT_MAX_M)) * (owner.LAND_HEIGHT_MULTIPLIER * 2.0)
+	
+	# Yükseklik Seviyeleri (Godot Birimleri)
+	var h_skirt: float = owner._meters_to_height_units(-12.0)
+	var h_coast: float = owner._meters_to_height_units(0.0)
+	
+	# Omuz Yüksekliği (Plato kenarı) - Kıyıdan itibaren daha dik bir çıkış veriyoruz
+	var h_plateau: float = owner._meters_to_height_units(base_height_m) + owner._meters_to_height_units(10.0) 
+	
+	# ZİRVE Yüksekliği
+	var h_peak: float = owner._meters_to_height_units(max_height_m) + owner._meters_to_height_units(PEAK_HEIGHT_BOOST_M)
 
-	var plateau_vertices: Array[Vector3] = []
-	for planar: Vector2 in plateau_planar:
-		var distance_ratio: float = clamp(centroid.distance_to(planar) / plateau_radius, 0.0, 1.0)
-		var eased: float = pow(1.0 - distance_ratio, slope_ratio)
-		var height: float = lerp(base_height_units, max_height_units, eased)
-		plateau_vertices.append(Vector3(planar.x, height, planar.y))
+	# Vertex Listeleri
+	var skirt_verts: Array[Vector3] = []
+	for p in skirt_planar_vec2:
+		skirt_verts.append(Vector3(p.x, h_skirt, p.y))
+		
+	var coast_verts: Array[Vector3] = []
+	for p in coast_planar:
+		coast_verts.append(Vector3(p.x, h_coast, p.y))
+		
+	var plateau_verts: Array[Vector3] = []
+	for p in plateau_planar:
+		plateau_verts.append(Vector3(p.x, h_plateau, p.y))
 
-	# Sahil hattini ve deniz tabanini ayni sirada sakla ki quad'lar sorunsuz kapansin.
-	var shoreline_vertices: Array[Vector3] = []
-	var bottom_vertices: Array[Vector3] = []
-	for planar: Vector2 in coast_planar:
-		shoreline_vertices.append(Vector3(planar.x, shoreline_height_units, planar.y))
-		bottom_vertices.append(Vector3(planar.x, bottom_height_units, planar.y))
+	# Zirve Noktası (Centroid)
+	var peak_vertex: Vector3 = Vector3(centroid.x, h_peak, centroid.y)
 
+	# Mesh Oluşturma
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	for i in range(0, plateau_indices.size(), 3):
-		var idx0 := plateau_indices[i]
-		var idx1 := plateau_indices[i + 1]
-		var idx2 := plateau_indices[i + 2]
-		st.add_vertex(plateau_vertices[idx0])
-		st.add_vertex(plateau_vertices[idx1])
-		st.add_vertex(plateau_vertices[idx2])
+	# 1. Aşama: Etek -> Kıyı
+	if skirt_verts.size() == coast_verts.size():
+		for i in range(skirt_verts.size()):
+			var next = (i + 1) % skirt_verts.size()
+			owner._add_quad_surface(st, coast_verts[i], coast_verts[next], skirt_verts[next], skirt_verts[i], Color.WHITE, Color.WHITE, false)
 
-	for idx in range(plateau_vertices.size()):
-		var next := (idx + 1) % plateau_vertices.size()
-		var top_a: Vector3 = plateau_vertices[idx]
-		var top_b: Vector3 = plateau_vertices[next]
-		var coast_a: Vector3 = shoreline_vertices[idx]
-		var coast_b: Vector3 = shoreline_vertices[next]
-		owner._add_quad_surface(st, top_a, top_b, coast_b, coast_a, Color.WHITE, Color.WHITE, false)
+	# 2. Aşama: Kıyı -> Plato Kenarı
+	if coast_verts.size() == plateau_verts.size():
+		for i in range(coast_verts.size()):
+			var next = (i + 1) % coast_verts.size()
+			owner._add_quad_surface(st, plateau_verts[i], plateau_verts[next], coast_verts[next], coast_verts[i], Color.WHITE, Color.WHITE, false)
 
-	for idx in range(shoreline_vertices.size()):
-		var next := (idx + 1) % shoreline_vertices.size()
-		var coast_a: Vector3 = shoreline_vertices[idx]
-		var coast_b: Vector3 = shoreline_vertices[next]
-		var bottom_a: Vector3 = bottom_vertices[idx]
-		var bottom_b: Vector3 = bottom_vertices[next]
-		owner._add_quad_surface(st, coast_a, coast_b, bottom_b, bottom_a, Color.WHITE, Color.WHITE, false)
-
-	for i in range(0, bottom_indices.size(), 3):
-		var idx0 := bottom_indices[i]
-		var idx1 := bottom_indices[i + 1]
-		var idx2 := bottom_indices[i + 2]
-		st.add_vertex(bottom_vertices[idx0])
-		st.add_vertex(bottom_vertices[idx2])
-		st.add_vertex(bottom_vertices[idx1])
+	# 3. Aşama: Plato Kenarı -> Zirve (Üçgen Yelpazesi)
+	# Düz kapak yerine, tüm kenar noktalarını merkeze (Zirveye) bağlıyoruz.
+	for i in range(plateau_verts.size()):
+		var next = (i + 1) % plateau_verts.size()
+		
+		# Normal hesaplaması için renk vs gerekirse buraya eklenebilir
+		st.add_vertex(plateau_verts[i])
+		st.add_vertex(plateau_verts[next])
+		st.add_vertex(peak_vertex) # Hepsini tepeye bağla
 
 	st.generate_normals()
 	var mesh := st.commit()
@@ -352,9 +348,8 @@ func _create_land_volume_chunk(polygon_points: Array, land_props: Dictionary, sc
 
 	return land_chunk
 
-# --- DÜZELTME: Yardımcı fonksiyonlar SINIF SEVİYESİNDE tanımlandı ---
+# --- Yardımcı Fonksiyonlar ---
 
-# Kara poligonunun dusey izdusumunu Vector2 dizisine dusurur.
 func _build_planar_loop(points: Array) -> Array[Vector2]:
 	var loop: Array[Vector2] = []
 	for point in points:
@@ -362,7 +357,6 @@ func _build_planar_loop(points: Array) -> Array[Vector2]:
 			loop.append(Vector2(point.x, point.z))
 	return loop
 
-# 2B nokta bulutunun agirlikli merkezini hesaplar.
 func _calculate_planar_centroid(points: Array[Vector2]) -> Vector2:
 	if points.is_empty():
 		return Vector2.ZERO
@@ -371,7 +365,6 @@ func _calculate_planar_centroid(points: Array[Vector2]) -> Vector2:
 		centroid += point
 	return centroid / points.size()
 
-# Sahil bandini merkeze dogru kaydirarak ic plato halkasi olusturur.
 func _shrink_loop_towards_centroid(points: Array[Vector2], centroid: Vector2, distance: float) -> Array[Vector2]:
 	if points.is_empty() or distance <= 0.0:
 		return []
@@ -386,7 +379,6 @@ func _shrink_loop_towards_centroid(points: Array[Vector2], centroid: Vector2, di
 		shrunken.append(point + direction.normalized() * offset)
 	return shrunken
 
-# Verilen halkadaki merkezden en uzak uzakligi bulur.
 func _calculate_max_distance(points: Array[Vector2], centroid: Vector2) -> float:
 	var max_distance: float = 0.0
 	for point: Vector2 in points:
