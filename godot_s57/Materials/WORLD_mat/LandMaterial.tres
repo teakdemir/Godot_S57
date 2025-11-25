@@ -1,33 +1,13 @@
-[gd_resource type="StandardMaterial3D" load_steps=5 format=3 uid="uid://4rnypm0apra1"]
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://4rnypm0apra1"]
 
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_e2oxy"]
-
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_3ajld"]
-seamless = true
-as_normal_map = true
-noise = SubResource("FastNoiseLite_e2oxy")
-
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_e2oxy"]
-seamless = true
-as_normal_map = true
-noise = SubResource("FastNoiseLite_e2oxy")
-
-[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_7vift"]
-seamless = true
-as_normal_map = true
-noise = SubResource("FastNoiseLite_e2oxy")
+[ext_resource type="Shader" uid="uid://dsig4g6qnp7nd" path="res://Materials/WORLD_mat/LandShader.gdshader" id="1_3ajld"]
 
 [resource]
 resource_name = "LandMaterial"
-albedo_color = Color(0.270991, 0.417815, 0.192452, 1)
-albedo_texture = SubResource("NoiseTexture2D_3ajld")
-metallic = 0.02
-roughness = 0.6
-emission_enabled = true
-emission = Color(0.101961, 0.156863, 0.07451, 1)
-emission_energy_multiplier = 0.25
-normal_enabled = true
-normal_scale = 16.0
-normal_texture = SubResource("NoiseTexture2D_e2oxy")
-refraction_enabled = true
-refraction_texture = SubResource("NoiseTexture2D_7vift")
+render_priority = 0
+shader = ExtResource("1_3ajld")
+shader_parameter/sand_color = Color(0.76, 0.69, 0.5, 1)
+shader_parameter/rock_color = Color(0.15, 0.17, 0.2, 1)
+shader_parameter/grass_color = Color(0.1, 0.25, 0.1, 1)
+shader_parameter/sand_height_max = 1.5
+shader_parameter/blend_sharpness = 4.0
