@@ -21,6 +21,9 @@ ambient_light_source = 1
 ambient_light_sky_contribution = 0.7
 glow_enabled = true
 glow_intensity = 0.35
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.005
+volumetric_fog_albedo = Color(0.713726, 0.901961, 0.992157, 1)
 
 [node name="Main_tscn" type="Node3D"]
 script = ExtResource("1_main")
