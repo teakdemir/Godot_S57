@@ -19,7 +19,6 @@ func _ready():
 func start_ship_placement(camera: Camera3D, parent_node: Node3D):
 	main_camera = camera
 	
-	# --- DÜZELTME 1: Yerleştirme modunda Mouse'u göster ---
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	
 	if current_ship and is_instance_valid(current_ship):
@@ -35,7 +34,7 @@ func start_ship_placement(camera: Camera3D, parent_node: Node3D):
 		else:
 			terrain_generator.add_child(current_ship)
 			
-		# Fiziği dondur (Havada asılı kalsın, düşmesin)
+		# Fiziği dondur 
 		var body = _get_rigidbody(current_ship)
 		if body:
 			body.freeze = true
@@ -77,16 +76,10 @@ func drop_ship():
 			
 			# 3. Fiziği Serbest Bırak
 			body.freeze = false
-			
-			# --- KİLİTLERİ SİLDİK (Artık özgürce batıp çıkabilir) ---
-			# Sadece devrilmemesi için açısal kilitleri tutabilirsin,
-			# ama tam gerçekçilik istiyorsan onları da silebilirsin.
-			# body.axis_lock_angular_x = true 
-			# body.axis_lock_angular_z = true
 		
 		is_placing_mode = false
 		
-		# Oyuna Başla
+		# başla
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		
 		print("SHIP MANAGER: Ship dropped into physics simulation.")

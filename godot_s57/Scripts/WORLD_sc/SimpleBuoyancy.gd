@@ -3,7 +3,8 @@ extends Node
 var body: RigidBody3D
 
 @export var water_height: float = 0.0
-@export var buoyancy_force: float = 1000.0  # Varsayılanı 10.000 yaptık
+@export var buoyancy_force: float = 1000.0 
+#Buoyancy Force ≈ (Gemi Kütlesi × 10) / (İstediğin Batma Derinliği) -- Geminin kendi ağırlık merkezine dikkat
 @export var water_drag: float = 1
 @export var water_angular_drag: float = 0.5
 
@@ -42,8 +43,8 @@ func _physics_process(_delta):
 		body.angular_velocity *= (1.0 - water_angular_drag)
 		
 		# --- DEBUG: Her 60 frame'de bir (yaklaşık 1 sn) durum raporu ver ---
-		if Engine.get_physics_frames() % 60 == 0:
-			print("Durum: SU ALTINDA | Derinlik: %.2f m | Uygulanan Kaldırma: %.2f N | Batan Ağırlık: %.2f N" % [depth, lift_force.y, body.mass * 9.8])
+		#if Engine.get_physics_frames() % 60 == 0:
+			#print("Durum: SU ALTINDA | Derinlik: %.2f m | Uygulanan Kaldırma: %.2f N | Batan Ağırlık: %.2f N" % [depth, lift_force.y, body.mass * 9.8])
 	
 	# Su üstündeyse sadece debug yaz
 	elif Engine.get_physics_frames() % 60 == 0:

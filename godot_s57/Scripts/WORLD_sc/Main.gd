@@ -99,7 +99,6 @@ func generate_3d_environment():
 	position_camera_for_map()
 	hide_ui_show_3d()
 	
-	# --- GEMİ YERLEŞTİRME MODUNU BAŞLAT ---
 	# Harita yüklendiği an gemi mouse'un ucuna gelecek.
 	ship_manager.start_ship_placement(main_camera, current_environment)
 
@@ -114,8 +113,7 @@ func position_camera_for_map():
 			center += Vector3(godot_pos.x, 0, godot_pos.z)
 		center /= seaare_polygon.size()
 		
-		# --- KAMERA AYARI GÜNCELLENDİ: DAHA YAKIN ---
-		# Eskiden 400m uzaktaydı, şimdi 50m. Böylece gemiyi görürsün.
+		#uzaklık
 		main_camera.position = Vector3(center.x, 50, center.z + 50)
 		main_camera.look_at(center, Vector3.UP)
 	else:

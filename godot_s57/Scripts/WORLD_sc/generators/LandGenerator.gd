@@ -4,7 +4,7 @@ class_name LandGenerator
 
 var owner: TerrainGenerator
 
-# --- AYARLAR ---
+# --- Genel AYARLAR zart zort ---
 # Bu değerler ne kadar büyük olursa eğim o kadar yumuşak olur.
 const UNDERWATER_SKIRT_WIDTH_M := 150.0 # Su altı genişliği (Dışarı)
 const BEACH_SLOPE_WIDTH_M := 80.0     # Kumsal genişliği (İçeri)
