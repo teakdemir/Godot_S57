@@ -1,6 +1,5 @@
 extends RefCounted
 
-# Haritayi cevreleyen yari saydam bariyer ve carpisma yuzeyini uretir.
 class_name BoundaryGenerator
 
 var owner: TerrainGenerator
@@ -40,11 +39,14 @@ func build_boundary(sea_polygon: Array, scale: int) -> Node3D:
 		var next := (idx + 1) % world_points.size()
 		var base_a: Vector3 = world_points[idx]
 		var base_b: Vector3 = world_points[next]
+		
+		# Sabitleri TerrainGenerator'dan alıyoruz
 		var bottom_a: Vector3 = base_a + Vector3(0, owner.BARRIER_DEPTH_OFFSET, 0)
 		var bottom_b: Vector3 = base_b + Vector3(0, owner.BARRIER_DEPTH_OFFSET, 0)
 		var top_a: Vector3 = base_a + Vector3(0, owner.BARRIER_HEIGHT, 0)
 		var top_b: Vector3 = base_b + Vector3(0, owner.BARRIER_HEIGHT, 0)
 
+		# --- GÖRSEL MESH (Tek Taraflı Yeterli - Shader ile çift taraf yapılır) ---
 		st.set_color(owner.BARRIER_COLOR_BOTTOM)
 		st.add_vertex(bottom_a)
 		st.set_color(owner.BARRIER_COLOR_BOTTOM)
@@ -59,9 +61,20 @@ func build_boundary(sea_polygon: Array, scale: int) -> Node3D:
 		st.set_color(owner.BARRIER_COLOR_TOP)
 		st.add_vertex(top_a)
 
+		# --- FİZİK MESH (ÇİFT TARAFLI - DOUBLE SIDED) ---
+		
+		# 1. Yüz (İçeriden Dışarıya Bakış)
 		collision_faces.append_array([
 			bottom_a, bottom_b, top_b,
 			bottom_a, top_b, top_a
+		])
+		
+		# 2. Yüz (Dışarıdan İçeriye Bakış - TERS SIRA)
+		# Sıralamayı ters çevirince normal vektörü tam tersine döner.
+		# Böylece duvarın "diğer yüzü" de katı olur.
+		collision_faces.append_array([
+			bottom_a, top_b, bottom_b,
+			bottom_a, top_a, top_b
 		])
 
 	st.generate_normals()
@@ -73,7 +86,7 @@ func build_boundary(sea_polygon: Array, scale: int) -> Node3D:
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.vertex_color_use_as_albedo = true
 	material.vertex_color_use_as_alpha = true
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED # Görsel olarak da iki yüzü göster
 
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = "BoundaryFade"
