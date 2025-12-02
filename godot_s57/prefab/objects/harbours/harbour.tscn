@@ -1,7 +1,16 @@
-[gd_scene load_steps=2 format=3 uid="uid://g21ywiymk8r1"]
+[gd_scene load_steps=3 format=3 uid="uid://g21ywiymk8r1"]
 
 [ext_resource type="PackedScene" uid="uid://d38p8lnoymu1h" path="res://prefab/objects/harbours/Port.glb" id="1_rbcpi"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_igujs"]
+size = Vector3(1.842, 1, 2.99033)
 
 [node name="harbour" type="Node3D"]
 
 [node name="Port" parent="." instance=ExtResource("1_rbcpi")]
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.318718, 0, 0.338364)
+shape = SubResource("BoxShape3D_igujs")

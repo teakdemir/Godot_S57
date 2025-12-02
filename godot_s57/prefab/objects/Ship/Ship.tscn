@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3 uid="uid://jywn1e0tmbbu"]
+
+[ext_resource type="PackedScene" uid="uid://chlm3a147a37f" path="res://prefab/objects/Ship/Simple Battleship.glb" id="1_0pr7t"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_h5k0y"]
+size = Vector3(2.87198, 0.671082, 0.544173)
+
+[node name="Ship" type="Node3D"]
+
+[node name="RigidBody3D" type="RigidBody3D" parent="."]
+
+[node name="Simple Battleship" parent="RigidBody3D" instance=ExtResource("1_0pr7t")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RigidBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.101345, -0.203396, -0.0157511)
+shape = SubResource("BoxShape3D_h5k0y")
+debug_color = Color(0.239846, 0.589756, 0, 0.419608)

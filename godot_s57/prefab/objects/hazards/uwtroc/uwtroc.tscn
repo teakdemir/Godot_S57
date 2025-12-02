@@ -1,9 +1,18 @@
-[gd_scene load_steps=2 format=3 uid="uid://ttbhwotg8g80"]
+[gd_scene load_steps=3 format=3 uid="uid://ttbhwotg8g80"]
 
 [ext_resource type="PackedScene" uid="uid://dfv27ayumtthl" path="res://prefab/objects/hazards/uwtroc/Rock Medium.glb" id="1_dim1k"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_7m4ao"]
+radius = 0.494998
 
 [node name="wrocks" type="Node3D"]
 transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)
 
 [node name="RockMedium" parent="." instance=ExtResource("1_dim1k")]
 transform = Transform3D(0.25, 0, 0, 0, 0.25, 0, 0, 0, 0.25, 0, -0.35, 0)
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0385226, -0.108976, 0.124885)
+shape = SubResource("SphereShape3D_7m4ao")

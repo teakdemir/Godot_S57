@@ -1,8 +1,18 @@
-[gd_scene load_steps=2 format=3 uid="uid://bgbrph0q7itfv"]
+[gd_scene load_steps=3 format=3 uid="uid://bgbrph0q7itfv"]
 
 [ext_resource type="PackedScene" uid="uid://dmhk7m40cmeur" path="res://prefab/objects/navigation/ligths/Lighthouse.glb" id="1_4wawr"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_jfbkv"]
+radius = 1.02272
+height = 8.98044
 
 [node name="Ligth" type="Node3D"]
 
 [node name="Lighthouse" parent="." instance=ExtResource("1_4wawr")]
 transform = Transform3D(0.11875, 0, 0, 0, 0.234375, 0, 0, 0, 0.11875, 0, -1, 0)
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0484929, 2.85789, -0.0162225)
+shape = SubResource("CapsuleShape3D_jfbkv")
