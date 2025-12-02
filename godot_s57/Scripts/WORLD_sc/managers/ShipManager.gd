@@ -67,27 +67,29 @@ func drop_ship():
 	if is_instance_valid(current_ship):
 		var body = _get_rigidbody(current_ship)
 		if body:
-			# --- DÜZELTME 2: Fırlamayı Önle (Hızı Sıfırla) ---
-			# Mouse ile taşırken oluşan momentumu siliyoruz
+			# 1. Hızı Sıfırla
 			body.linear_velocity = Vector3.ZERO
 			body.angular_velocity = Vector3.ZERO
 			
-			# Çarpışmaları geri aç
+			# 2. Çarpışmaları Aç
 			body.collision_layer = 1
 			body.collision_mask = 1
 			
-			# Fiziği serbest bırak (Suya düşsün)
+			# 3. Fiziği Serbest Bırak
 			body.freeze = false
+			
+			# --- KİLİTLERİ SİLDİK (Artık özgürce batıp çıkabilir) ---
+			# Sadece devrilmemesi için açısal kilitleri tutabilirsin,
+			# ama tam gerçekçilik istiyorsan onları da silebilirsin.
+			# body.axis_lock_angular_x = true 
+			# body.axis_lock_angular_z = true
 		
 		is_placing_mode = false
 		
-		# --- DÜZELTME 3: Oyuna Başla (Mouse'u Gizle) ---
-		# Gemi bırakıldı, artık oyuna dönüyoruz
+		# Oyuna Başla
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		
-		print("SHIP MANAGER: Ship dropped at ", current_ship.global_position)
-
-# Helper: RigidBody bulucu (Root veya Child olabilir)
+		print("SHIP MANAGER: Ship dropped into physics simulation.")
 func _get_rigidbody(node: Node) -> RigidBody3D:
 	if node is RigidBody3D:
 		return node
