@@ -1,21 +1,29 @@
-[gd_scene load_steps=4 format=3 uid="uid://jywn1e0tmbbu"]
+[gd_scene load_steps=5 format=3 uid="uid://jywn1e0tmbbu"]
 
 [ext_resource type="PackedScene" uid="uid://chlm3a147a37f" path="res://prefab/objects/Ship/Simple Battleship.glb" id="1_0pr7t"]
 [ext_resource type="Script" uid="uid://depyr4nvddnc" path="res://Scripts/WORLD_sc/SimpleBuoyancy.gd" id="1_h5k0y"]
+[ext_resource type="Script" uid="uid://mtpqlvypkyjn" path="res://Scripts/WORLD_sc/ShipController.gd" id="1_xyd1p"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_h5k0y"]
-size = Vector3(2.87198, 0.671082, 0.544173)
+size = Vector3(14.2374, 2.54111, 2.77699)
 
-[node name="Ship" type="Node3D"]
-
-[node name="RigidBody3D" type="RigidBody3D" parent="."]
+[node name="Ship" type="RigidBody3D"]
+transform = Transform3D(-4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 0, 0, 0)
 mass = 50.0
 script = ExtResource("1_h5k0y")
 
-[node name="Simple Battleship" parent="RigidBody3D" instance=ExtResource("1_0pr7t")]
+[node name="ShipController" type="Node3D" parent="."]
+script = ExtResource("1_xyd1p")
+
+[node name="Simple Battleship" parent="." instance=ExtResource("1_0pr7t")]
 transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 1.8, 0)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="RigidBody3D"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.101345, -0.203396, -0.0157511)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.465193, 0.731617, -0.0815811)
 shape = SubResource("BoxShape3D_h5k0y")
 debug_color = Color(0.239846, 0.589756, 0, 0.419608)
+
+[node name="ChaseCamera" type="Camera3D" parent="."]
+transform = Transform3D(-4.37114e-08, -0.707107, 0.707107, 0, 0.707107, 0.707107, -1, 3.09086e-08, -3.09086e-08, 3.75056, 8.76067, -0.118086)
+fov = 100.0
+near = 0.1

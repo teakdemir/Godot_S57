@@ -4,7 +4,7 @@ class_name ShipManager
 const SHIP_PREFAB_PATH = "res://prefab/objects/Ship/Ship.tscn"
 
 var terrain_generator: TerrainGenerator
-var current_ship: Node3D # Hata almamak için Node3D yaptık
+var current_ship: Node3D # Hata almamak için genel tip
 var is_placing_mode: bool = false
 var main_camera: Camera3D
 
@@ -15,10 +15,11 @@ func _ready():
 	set_process_input(true)
 	set_process(true)
 
-# Main.gd'den çağrılan fonksiyon
+# Main.gd'den çağrılan yerleştirme başlatıcı
 func start_ship_placement(camera: Camera3D, parent_node: Node3D):
 	main_camera = camera
 	
+	# Mouse'u görünür yap ki nereye koyduğunu gör
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	
 	if current_ship and is_instance_valid(current_ship):
@@ -34,22 +35,21 @@ func start_ship_placement(camera: Camera3D, parent_node: Node3D):
 		else:
 			terrain_generator.add_child(current_ship)
 			
-		# Fiziği dondur 
+		# Fiziği dondur (Havada asılı kalsın)
 		var body = _get_rigidbody(current_ship)
 		if body:
 			body.freeze = true
 			body.freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
-			# Çarpışmayı kapat ki yerleştirirken etrafa takılmasın
-			body.collision_layer = 0 
+			body.collision_layer = 0 # Çarpışma kapalı
 			body.collision_mask = 0
 			
 		is_placing_mode = true
-		print("SHIP MANAGER: Mouse placement started. Click to drop the ship.")
+		print("SHIP MANAGER: Mouse placement started. Click to drop.")
 	else:
 		print("SHIP MANAGER: Error! Ship prefab not found.")
 
 func _process(_delta):
-	# Mouse takibi
+	# Yerleştirme modundaysak gemi mouse'u takip etsin
 	if is_placing_mode and is_instance_valid(current_ship) and main_camera:
 		var mouse_pos = filter_mouse_position_on_water()
 		if mouse_pos != Vector3.ZERO:
@@ -66,23 +66,25 @@ func drop_ship():
 	if is_instance_valid(current_ship):
 		var body = _get_rigidbody(current_ship)
 		if body:
-			# 1. Hızı Sıfırla
+			# Hızı Sıfırla (Fırlamayı önle)
 			body.linear_velocity = Vector3.ZERO
 			body.angular_velocity = Vector3.ZERO
 			
-			# 2. Çarpışmaları Aç
+			# Çarpışmaları geri aç
 			body.collision_layer = 1
 			body.collision_mask = 1
 			
-			# 3. Fiziği Serbest Bırak
+			# Fiziği serbest bırak (Suya düşsün)
 			body.freeze = false
 		
 		is_placing_mode = false
 		
-		# başla
+		# Mouse'u gizle ve oyuna dön
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		
-		print("SHIP MANAGER: Ship dropped into physics simulation.")
+		print("SHIP MANAGER: Ship dropped at ", current_ship.global_position)
+
+# Helper: RigidBody bulucu
 func _get_rigidbody(node: Node) -> RigidBody3D:
 	if node is RigidBody3D:
 		return node
@@ -96,7 +98,6 @@ func filter_mouse_position_on_water() -> Vector3:
 	var ray_origin = main_camera.project_ray_origin(mouse_pos_2d)
 	var ray_normal = main_camera.project_ray_normal(mouse_pos_2d)
 	
-	# Deniz seviyesi (Y=0) düzlemi
 	var sea_plane = Plane(Vector3.UP, 0.0)
 	var intersection = sea_plane.intersects_ray(ray_origin, ray_normal)
 	

@@ -5,7 +5,7 @@ var body: RigidBody3D
 @export var water_height: float = 0.0
 @export var buoyancy_force: float = 1000.0 
 #Buoyancy Force ≈ (Gemi Kütlesi × 10) / (İstediğin Batma Derinliği) -- Geminin kendi ağırlık merkezine dikkat
-@export var water_drag: float = 1
+@export var water_drag: float = 0.05
 @export var water_angular_drag: float = 0.5
 
 
