@@ -10,6 +10,7 @@ size = Vector3(2.87198, 0.671082, 0.544173)
 [node name="RigidBody3D" type="RigidBody3D" parent="."]
 
 [node name="Simple Battleship" parent="RigidBody3D" instance=ExtResource("1_0pr7t")]
+transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="RigidBody3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.101345, -0.203396, -0.0157511)
