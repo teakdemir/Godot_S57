@@ -16,7 +16,7 @@ script = ExtResource("1_h5k0y")
 script = ExtResource("1_xyd1p")
 
 [node name="Simple Battleship" parent="." instance=ExtResource("1_0pr7t")]
-transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 1.8, 0)
+transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 1.8, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.465193, 0.731617, -0.0815811)
