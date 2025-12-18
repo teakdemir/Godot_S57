@@ -4,15 +4,15 @@
 [ext_resource type="Script" uid="uid://depyr4nvddnc" path="res://Scripts/WORLD_sc/SimpleBuoyancy.gd" id="1_h5k0y"]
 [ext_resource type="Script" uid="uid://mtpqlvypkyjn" path="res://Scripts/WORLD_sc/ShipController.gd" id="1_xyd1p"]
 
+[sub_resource type="BoxShape3D" id="BoxShape3D_h5k0y"]
+size = Vector3(14.2374, 2.54111, 2.77699)
+
 [sub_resource type="GDScript" id="GDScript_xyd1p"]
 resource_name = "RosMan_2"
-script/source = "extends Node3D
+script/source = "extends RigidBody3D  # <-- Bak burayı RigidBody3D yaptık artık.
 
-
-# --- IP AYARLARI (Senin verdiğin adresler) ---
-# ROS (Sunucu) Adresi:
+# --- AYARLAR ---
 @export var socket_url: String = \"ws://192.168.98.206:9090\" 
-
 @export var publish_rate: float = 10.0
 @export var lidar_range: float = 50.0 
 @export var num_rays: int = 72 
@@ -22,13 +22,15 @@ var rays: Array[RayCast3D] = []
 var last_publish_time = 0.0
 var is_connected = false
 
-# Parent (Gemi) erişimi
-@onready var ship_body: RigidBody3D = get_parent()
-# Controller erişimi
-@onready var controller = ship_body 
+# Parent (Gerçek Gemi) erişimi
+# Burası önemli: get_parent() artık gemiyi verir.
+@onready var real_ship = get_parent() 
 
 func _ready():
-	print(\"📡 ROS: Bağlantı deneniyor... Hedef: \", socket_url)
+	# Kendimizi donduralım ki gemiyi uçurmayalım
+	freeze = true 
+	
+	print(\"📡 RADAR (RB Modu): Bağlantı kuruluyor... \", socket_url)
 	socket.connect_to_url(socket_url)
 	_setup_lidar()
 
@@ -61,11 +63,11 @@ func _process(delta):
 			
 	elif state == WebSocketPeer.STATE_CLOSED:
 		if is_connected:
-			print(\"❌ ROS: Bağlantı koptu!\")
+			print(\"❌ RADAR: Bağlantı koptu!\")
 			is_connected = false
 
 func _on_connection_success():
-	print(\"✅ ROS: BAĞLANTI BAŞARILI! (Sunucu: 192.168.98.206)\")
+	print(\"✅ RADAR: BAĞLANTI BAŞARILI!\")
 	is_connected = true
 	var sub_msg = {\"op\": \"subscribe\", \"topic\": \"/cmd_vel\", \"type\": \"geometry_msgs/msg/Twist\"}
 	socket.send_text(JSON.stringify(sub_msg))
@@ -77,10 +79,11 @@ func _publish_data():
 	var secs = int(time)
 	var nsecs = int((time - secs) * 1e9)
 	
-	var pos = ship_body.global_position
-	var rot = ship_body.global_transform.basis.get_rotation_quaternion()
-	var lin_vel = ship_body.linear_velocity
-	var ang_vel = ship_body.angular_velocity
+	# Gerçek geminin (Parent) verilerini alıyoruz
+	var pos = real_ship.global_position
+	var rot = real_ship.global_transform.basis.get_rotation_quaternion()
+	var lin_vel = real_ship.linear_velocity
+	var ang_vel = real_ship.angular_velocity
 	
 	var odom_msg = {
 		\"op\": \"publish\",
@@ -128,20 +131,15 @@ func _handle_incoming(json_str):
 		var data = json.get_data()
 		if data.has(\"topic\") and data[\"topic\"] == \"/cmd_vel\":
 			var msg = data[\"msg\"]
-			controller.ros_throttle = clamp(msg[\"linear\"][\"x\"], -1.0, 1.0)
-			controller.ros_steering = clamp(msg[\"angular\"][\"z\"], -1.0, 1.0)
+			# Kontrol komutlarını GERÇEK GEMİYE (Parent) iletiyoruz
+			real_ship.ros_throttle = clamp(msg[\"linear\"][\"x\"], -1.0, 1.0)
+			real_ship.ros_steering = clamp(msg[\"angular\"][\"z\"], -1.0, 1.0)
 "
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_h5k0y"]
-size = Vector3(14.2374, 2.54111, 2.77699)
 
 [node name="Ship" type="RigidBody3D"]
 transform = Transform3D(-4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 0, 0, 0)
 mass = 50.0
 script = ExtResource("1_h5k0y")
-
-[node name="RosManager" type="Node3D" parent="."]
-script = SubResource("GDScript_xyd1p")
 
 [node name="ShipController" type="Node3D" parent="."]
 script = ExtResource("1_xyd1p")
@@ -158,3 +156,9 @@ debug_color = Color(0.239846, 0.589756, 0, 0.419608)
 transform = Transform3D(-4.37114e-08, -0.707107, 0.707107, 0, 0.707107, 0.707107, -1, 3.09086e-08, -3.09086e-08, 3.75056, 8.76067, -0.118086)
 fov = 100.0
 near = 0.1
+
+[node name="RosManager" type="RigidBody3D" parent="."]
+collision_layer = 0
+collision_mask = 0
+freeze = true
+script = SubResource("GDScript_xyd1p")
