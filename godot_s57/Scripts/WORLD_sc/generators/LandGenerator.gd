@@ -3,7 +3,7 @@ extends RefCounted
 class_name LandGenerator
 
 var owner: TerrainGenerator
-
+# Halka Halka kara oluşturma toplam 3 halkamız var --> algoritma internetten 
 # --- Genel AYARLAR zart zort ---
 # Bu değerler ne kadar büyük olursa eğim o kadar yumuşak olur.
 const UNDERWATER_SKIRT_WIDTH_M := 150.0 # Su altı genişliği (Dışarı)
@@ -85,7 +85,7 @@ func _create_sloped_safe_chunk(polygon_points: Array, land_props: Dictionary, sc
 	# Genelde tek parça döner, ilkini alıyoruz.
 	var skirt_planar_vec2 = skirt_polys[0]
 
-	# 3. Halka: PLATO (PLATEAU) - İçeri Daraltma
+	# 3. Halka: PLATO - İçeri Daraltma
 	# Negatif offset vererek içeri daraltıyoruz.
 	var plateau_polys = Geometry2D.offset_polygon(PackedVector2Array(coast_planar), -plateau_offset, Geometry2D.JOIN_ROUND)
 	
@@ -121,9 +121,6 @@ func _create_sloped_safe_chunk(polygon_points: Array, land_props: Dictionary, sc
 	# Mesh Oluşturma
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	# Geometry2D nokta sayısını değiştirdiği için (köşeleri yuvarladığı için),
-	# halkaların nokta sayıları eşit değildir. Bu yüzden "Dikiş" (Stitching) fonksiyonu kullanıyoruz.
 
 	# 1. Eğim: Etek -> Kıyı
 	_stitch_rings(st, skirt_verts, coast_verts)

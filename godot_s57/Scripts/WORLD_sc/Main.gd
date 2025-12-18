@@ -139,7 +139,7 @@ func _input(event):
 		else:
 			show_ui_hide_3d()
 			
-	# --- "O" TUŞU İLE MOD DEĞİŞTİRME ---
+	# --- "O" TUŞU İLE KAMERA DEĞİŞTİRME ---
 	if event is InputEventKey and event.pressed and event.keycode == KEY_O:
 		toggle_camera_mode()
 
@@ -160,12 +160,12 @@ func toggle_camera_mode():
 	if is_ship_mode:
 		print("Mod: GEMİ KONTROLÜ")
 		
-		# 1. Serbest kamerayı kapat
+		#Serbest kamerayı kapat
 		camera_controller.set_physics_process(false)
 		camera_controller.set_process(false)
 		main_camera.current = false
 		
-		# 2. Gemiye geç
+		#Gemiye geç
 		if ship_cam:
 			ship_cam.current = true
 		
@@ -177,11 +177,11 @@ func toggle_camera_mode():
 	else:
 		print("Mod: SERBEST KAMERA")
 		
-		# 1. Gemiyi boşa al (Motoru kes)
+		#Gemiyi boşa al 
 		if ship_controller:
 			ship_controller.is_active = false
 			
-		# 2. Serbest kameraya dön
+		#Serbest kameraya dön
 		if ship_cam:
 			ship_cam.current = false
 			
