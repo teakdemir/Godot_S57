@@ -1,4 +1,4 @@
-extends Node
+extends Node3D
 
 # --- KRİTİK AYARLAR ---
 # Arkadaşının IP'si (Ping attığın adres)
