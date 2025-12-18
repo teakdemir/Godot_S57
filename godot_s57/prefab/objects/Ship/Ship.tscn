@@ -3,7 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://chlm3a147a37f" path="res://prefab/objects/Ship/Simple Battleship.glb" id="1_0pr7t"]
 [ext_resource type="Script" uid="uid://depyr4nvddnc" path="res://Scripts/WORLD_sc/SimpleBuoyancy.gd" id="1_h5k0y"]
 [ext_resource type="Script" uid="uid://mtpqlvypkyjn" path="res://Scripts/WORLD_sc/ShipController.gd" id="1_xyd1p"]
-[ext_resource type="Script" uid="uid://c7ys63jw3s4hm" path="res://Scripts/WORLD_sc/managers/RosManager.gd" id="3_1m43p"]
+[ext_resource type="Script" uid="uid://c68dgvyndyhqu" path="res://Scripts/WORLD_sc/managers/RosManager.gd" id="3_1m43p"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_h5k0y"]
 size = Vector3(14.2374, 2.54111, 2.77699)
