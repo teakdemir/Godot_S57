@@ -13,11 +13,11 @@ transform = Transform3D(-4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 0, 0, 
 mass = 50.0
 script = ExtResource("1_h5k0y")
 
-[node name="ShipController" type="Node3D" parent="."]
-script = ExtResource("1_xyd1p")
-
 [node name="RosManager" type="Node3D" parent="."]
 script = ExtResource("3_1m43p")
+
+[node name="ShipController" type="Node3D" parent="."]
+script = ExtResource("1_xyd1p")
 
 [node name="Simple Battleship" parent="." instance=ExtResource("1_0pr7t")]
 transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 1.8, 0)
