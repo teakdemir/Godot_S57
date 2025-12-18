@@ -46,7 +46,7 @@ func build_boundary(sea_polygon: Array, scale: int) -> Node3D:
 		var top_a: Vector3 = base_a + Vector3(0, owner.BARRIER_HEIGHT, 0)
 		var top_b: Vector3 = base_b + Vector3(0, owner.BARRIER_HEIGHT, 0)
 
-		# --- GÖRSEL MESH (Tek Taraflı Yeterli - Shader ile çift taraf yapılır) ---
+		# Saydamlık 
 		st.set_color(owner.BARRIER_COLOR_BOTTOM)
 		st.add_vertex(bottom_a)
 		st.set_color(owner.BARRIER_COLOR_BOTTOM)
@@ -61,17 +61,13 @@ func build_boundary(sea_polygon: Array, scale: int) -> Node3D:
 		st.set_color(owner.BARRIER_COLOR_TOP)
 		st.add_vertex(top_a)
 
-		# --- FİZİK MESH (ÇİFT TARAFLI - DOUBLE SIDED) ---
-		
-		# 1. Yüz (İçeriden Dışarıya Bakış)
+		# Duvarın iki tarafı da çarpışır olsun
+		# İç
 		collision_faces.append_array([
 			bottom_a, bottom_b, top_b,
 			bottom_a, top_b, top_a
 		])
-		
-		# 2. Yüz (Dışarıdan İçeriye Bakış - TERS SIRA)
-		# Sıralamayı ters çevirince normal vektörü tam tersine döner.
-		# Böylece duvarın "diğer yüzü" de katı olur.
+		#Dış
 		collision_faces.append_array([
 			bottom_a, top_b, bottom_b,
 			bottom_a, top_a, top_b

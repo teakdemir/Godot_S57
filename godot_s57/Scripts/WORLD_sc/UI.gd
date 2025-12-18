@@ -2,7 +2,7 @@ extends Control
 
 signal map_selected(map_id: int)
 signal refresh_requested
-
+#rEZİL bir UI
 @onready var map_dropdown: OptionButton = $Panel/MarginContainer/VBoxContainer/SelectionContainer/OptionButton
 @onready var load_button: Button = $Panel/MarginContainer/VBoxContainer/ButtonContainer/LoadMap
 @onready var refresh_button: Button = $Panel/MarginContainer/VBoxContainer/ButtonContainer/Refresh

@@ -105,7 +105,7 @@ func _apply_definition_materials(instance: Node3D, definition: Dictionary) -> vo
 		if material:
 			(target as MeshInstance3D).material_override = material
 
-# Prefab bulunamadiginda basit silindir marker olusturur.
+# Prefab bulunamadiginda basit silindir marker olusturur. --> kapalı şu an
 
 func _align_with_water_heading(instance: Node3D, obj_data: Dictionary) -> void:
 	var orientation_variant = obj_data.get("orientation", null)
@@ -173,4 +173,4 @@ func _span_point_to_world(span_point: Dictionary, obj_data: Dictionary, scale: i
 		"y": base_y,
 		"z": span_point.get("z", 0.0)
 	}
-	return MapManager.api_to_godot_coordinates(coords, scale)
+	return MapManager.api_to_godot_coordinates(coords, scale) 

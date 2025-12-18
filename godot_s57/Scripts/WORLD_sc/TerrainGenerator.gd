@@ -83,7 +83,7 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	var environment_root := Node3D.new()
 	environment_root.name = "MapEnvironment"
 
-	# 1. Verileri Çek
+	#Verileri Çek
 	var terrain: Dictionary = map_data.get("terrain", {}) as Dictionary
 	
 	# Deniz poligonlarını hazırla
@@ -114,12 +114,12 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 		else:
 			return environment_root # Veri yoksa çık
 
-	# Sınır duvarı için orijinal (delinmemiş) halini sakla
+	# Sınır duvarı için orijinal halini sakla
 	var boundary_base_polygon: Array = []
 	if not base_sea_polygons.is_empty():
 		boundary_base_polygon = base_sea_polygons[0].duplicate(true)
 	
-	# 2. Kara Poligonlarını Hazırla
+	#Kara Poligonlarını Hazırla
 	var land_polygons_data: Array = []
 	if terrain:
 		var land_variant = terrain.get("land_polygons", [])
@@ -129,8 +129,7 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	# Karayı genişlet
 	var extended_land_polygons_data := _land_generator.extend_land_polygons(land_polygons_data, MAP_EXTENSION_FACTOR)
 
-	# 3. CLIPPING İŞLEMİ
-	# Denizden karayı çıkarıp "Delikli Deniz" elde ediyoruz.
+	# Delikli deniz
 	var clipped_sea_polygons = _clip_land_from_sea(extended_sea_polygons, extended_land_polygons_data)
 
 	# Diğer verileri çek
@@ -145,15 +144,13 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 
 	print("Generating 3D environment (WITH CLIPPING):")
 	print("- Final Sea Patches: " + str(clipped_sea_polygons.size()))
-
-	# 4. İnşa Etme (Build)
 	
 	# Deniz yüzeyi için 'clipped_sea_polygons' kullanıyoruz (Karanın altı boş)
 	var sea_surface: Node3D = _sea_generator.build_surface(clipped_sea_polygons, boundary_base_polygon, depth_areas, scale)
 	if sea_surface:
 		environment_root.add_child(sea_surface)
 
-	# Deniz tabanı (Sea Floor) delinmemeli, orijinal boundary kullanıyoruz
+	# Deniz tabanı delinmemeli, orijinal boundary kullanıyoruz
 	var sea_floor: MeshInstance3D = _sea_generator.build_seafloor(depth_areas, boundary_base_polygon, scale)
 	if sea_floor:
 		environment_root.add_child(sea_floor)
@@ -180,7 +177,7 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 
 	return environment_root
 
-# --- YARDIMCI FONKSİYONLAR ---
+# zart ve zort
 
 func _calculate_polygon_bounds(points: Array) -> Dictionary:
 	if points.is_empty(): return {}
@@ -303,14 +300,14 @@ func _expand_polygon_collection(polygons: Array, factor: float) -> Array:
 func _sanitize_sea_polygon(points: Array) -> Array:
 	return _sanitize_polygon(points)
 
-# --- CLIPPING FONKSİYONLARI (Overlap Fix) ---
+#(Overlap Fix)
 
 # Deniz poligonlarından kara poligonlarını çıkaran ana fonksiyon
 func _clip_land_from_sea(sea_polygons: Array, land_data_entries: Array) -> Array:
-	# 1. Tüm kara poligonlarını Geometry2D formatına (PackedVector2Array) çevir
+	#Tüm kara poligonlarını Geometry2D formatına çevir
 	var land_shapes: Array[PackedVector2Array] = []
 	
-	# OVERLAP AYARI: Bu değer kadar denizi karanın içine sokacağız (Godot biriminde negatif offset)
+	# OVERLAP AYARI: Bu değer kadar denizi karanın içine sok yani
 	var clipping_offset = -0.2 
 	
 	for entry in land_data_entries:
@@ -358,14 +355,14 @@ func _clip_land_from_sea(sea_polygons: Array, land_data_entries: Array) -> Array
 				
 	return final_sea_polygons
 
-# Helper: [{'x': 1, 'z': 2}] -> PackedVector2Array([Vector2(1, 2)])
+# [{'x': 1, 'z': 2}] -> PackedVector2Array([Vector2(1, 2)])
 func _dict_array_to_packed_vector2(dict_array: Array) -> PackedVector2Array:
 	var arr = PackedVector2Array()
 	for p in dict_array:
 		arr.append(Vector2(float(p.get("x", 0.0)), float(p.get("z", 0.0))))
 	return arr
 
-# Helper: PackedVector2Array -> [{'x': 1, 'z': 2}]
+# PackedVector2Array -> [{'x': 1, 'z': 2}]
 func _packed_vector2_to_dict_array(vec_arr: PackedVector2Array) -> Array:
 	var arr = []
 	for vec in vec_arr:

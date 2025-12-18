@@ -28,7 +28,7 @@ static func get_scale_info(scale: int) -> String:
 # Convert API coordinates to Godot coordinates with proper scaling
 static func api_to_godot_coordinates(api_coords: Dictionary, scale: float) -> Vector3:
 	# MULTIPLY by scale factor - larger scale = bigger map in Godot
-	# Use 0.1 multiplier to convert to reasonable Godot units (meters)
+	# Use 0.1 multiplier to convert to reasonable Godot units --> (meters)
 	return Vector3(
 		api_coords.get("x", 0.0) * scale * 0.1,
 		api_coords.get("y", 0.0) * 0.1,

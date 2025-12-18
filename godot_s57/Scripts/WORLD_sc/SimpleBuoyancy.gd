@@ -7,7 +7,7 @@ var body: RigidBody3D
 @export var water_drag: float = 0.1
 @export var water_angular_drag: float = 0.5
 
-#hcıyatmaz
+#hacıyatmaz
 @export var stability_force: float = 8000.0 
 
 func _ready():
@@ -18,7 +18,7 @@ func _ready():
 	
 	if body:
 	
-		# Gemi hızlıysa duvarın içinden ışınlanmasını engeller
+		# Gemi hızlıysa duvarın içinden ışınlanmasın
 		body.continuous_cd = true 
 		print("BUOYANCY: Gemi bulundu. CCD ve Stabilite aktif.")
 
@@ -36,7 +36,7 @@ func _physics_process(_delta):
 		body.linear_velocity *= (1.0 - water_drag)
 		body.angular_velocity *= (1.0 - water_angular_drag)
 		
-		# Gemiyi dik tutmaya çalışır
+		# Gemiyi dik tut
 		var current_up = body.global_transform.basis.y
 		var target_up = Vector3.UP
 		var torque_dir = current_up.cross(target_up)
