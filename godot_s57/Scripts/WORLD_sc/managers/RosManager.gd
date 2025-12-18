@@ -1,8 +1,9 @@
 extends Node3D
 
-# --- IP AYARI ---
-@export var socket_url: String = "ws://172.20.10.6:9090" 
+# --- GÜNCELLENEN IP ADRESİ (ROS Cihazı) ---
+@export var socket_url: String = "ws://192.168.98.206:9090" 
 
+# --- AYARLAR ---
 @export var publish_rate: float = 10.0
 @export var lidar_range: float = 50.0 
 @export var num_rays: int = 72 
@@ -12,7 +13,9 @@ var rays: Array[RayCast3D] = []
 var last_publish_time = 0.0
 var is_connected = false
 
+# Parent (Gemi) erişimi
 @onready var ship_body: RigidBody3D = get_parent()
+# Controller erişimi
 @onready var controller = ship_body 
 
 func _ready():
@@ -24,6 +27,7 @@ func _setup_lidar():
 	for i in range(num_rays):
 		var ray = RayCast3D.new()
 		add_child(ray)
+		# Lidar konumu (Gemi merkezinden 3 metre yukarıda)
 		ray.position = Vector3(0, 3.0, 0)
 		ray.target_position = Vector3(lidar_range, 0, 0)
 		ray.rotation_degrees.y = i * (360.0 / float(num_rays))
@@ -53,10 +57,12 @@ func _process(delta):
 			is_connected = false
 
 func _on_connection_success():
-	print("✅ ROS: BAĞLANTI BAŞARILI!")
+	print("✅ ROS: BAĞLANTI BAŞARILI! (IP: 192.168.98.206)")
 	is_connected = true
+	# Dinle (Subscribe)
 	var sub_msg = {"op": "subscribe", "topic": "/cmd_vel", "type": "geometry_msgs/msg/Twist"}
 	socket.send_text(JSON.stringify(sub_msg))
+	# Yayınla (Advertise)
 	socket.send_text(JSON.stringify({"op": "advertise", "topic": "/odom", "type": "nav_msgs/msg/Odometry"}))
 	socket.send_text(JSON.stringify({"op": "advertise", "topic": "/scan", "type": "sensor_msgs/msg/LaserScan"}))
 
@@ -70,6 +76,7 @@ func _publish_data():
 	var lin_vel = ship_body.linear_velocity
 	var ang_vel = ship_body.angular_velocity
 	
+	# ODOMETRY VERİSİ
 	var odom_msg = {
 		"op": "publish",
 		"topic": "/odom",
@@ -88,6 +95,7 @@ func _publish_data():
 	}
 	socket.send_text(JSON.stringify(odom_msg))
 	
+	# LIDAR VERİSİ
 	var ranges = []
 	for ray in rays:
 		if ray.is_colliding():
