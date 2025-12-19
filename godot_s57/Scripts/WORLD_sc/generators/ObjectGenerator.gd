@@ -37,8 +37,6 @@ func build_navigation_objects(nav_objects: Dictionary, scale: int) -> Node3D:
 
 	return root
 
-# --- Yardimcilar -------------------------------------------------------------
-
 # Tekil bir objeyi prefab tanimina gore instantiate eder.
 func _instantiate_navigation_object(obj_data: Dictionary, scale: int) -> Node3D:
 	var obj_type := String(obj_data.get("type", "")).strip_edges().to_lower()

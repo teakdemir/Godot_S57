@@ -98,8 +98,6 @@ func build_seafloor(depth_areas: Array, sea_polygon: Array, scale: int) -> MeshI
 
 	return mesh_instance
 
-# --- Yardimcilar -------------------------------------------------------------
-
 # Tek bir deniz poligonunu grid tabanli suprfasa donusturur.
 func _create_water_polygon_mesh(polygon_points: Array, scale: int, sea_material: Material, depth_areas: Array) -> MeshInstance3D:
 	var sanitized: Array = owner._sanitize_polygon(polygon_points)

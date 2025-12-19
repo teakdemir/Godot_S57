@@ -26,8 +26,6 @@ func build_landmasses(land_polygons: Array, scale: int) -> Node3D:
 
 	var land_material: Material = owner._load_material(owner.LAND_MATERIAL)
 	
-	# Not: cull_mode satırı silindi (Shader içinde hallediliyor)
-
 	var created_meshes := 0
 
 	for land_variant in land_polygons:
@@ -54,7 +52,7 @@ func build_landmasses(land_polygons: Array, scale: int) -> Node3D:
 func build_coastlines(_coastlines: Array, _scale: int) -> Node3D:
 	return null 
 
-# --- GÜVENLİ EĞİM (Geometry2D Offset ile) ---
+#EĞİM -Geometry2D Offset ile
 func _create_sloped_safe_chunk(polygon_points: Array, land_props: Dictionary, scale: int, land_material: Material) -> Node3D:
 	var sanitized: Array = owner._sanitize_polygon(polygon_points)
 	if sanitized.size() < 3: return null
@@ -79,7 +77,7 @@ func _create_sloped_safe_chunk(polygon_points: Array, land_props: Dictionary, sc
 
 	# 2. Halka: ETEK (SKIRT) - Dışarı Genişletme
 	# Geometry2D.offset_polygon şekli bozmadan güvenli genişletir.
-	# JOIN_ROUND (1) kullanarak köşeleri yuvarlıyoruz ki sivri diken çıkmasın.
+	
 	var skirt_polys = Geometry2D.offset_polygon(PackedVector2Array(coast_planar), skirt_offset, Geometry2D.JOIN_ROUND)
 	if skirt_polys.is_empty(): return null
 	# Genelde tek parça döner, ilkini alıyoruz.
@@ -210,8 +208,6 @@ func _stitch_rings(st: SurfaceTool, ring_outer: Array[Vector3], ring_inner: Arra
 			var p_next = loop_in[i_in + 1]
 			owner._add_quad_surface(st, p_anchor, p_anchor, p_next, p_curr, Color.WHITE, Color.WHITE, false)
 			i_in += 1
-
-# --- Yardımcı Fonksiyonlar ---
 
 func _build_planar_loop(points: Array) -> Array[Vector2]:
 	var loop: Array[Vector2] = []

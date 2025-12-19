@@ -1,9 +1,9 @@
 extends Node3D
 
-# --- GÜNCELLENEN IP ADRESİ (ROS Cihazı) ---
+# IP ADRESİ (ROS Cihazı) --> sena // Benim mobilveri IP
 @export var socket_url: String = "ws://192.168.98.206:9090" 
 
-# --- AYARLAR ---
+# AYARLAR
 @export var publish_rate: float = 10.0
 @export var lidar_range: float = 50.0 
 @export var num_rays: int = 72 
