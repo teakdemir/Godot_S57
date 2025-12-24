@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://mtpqlvypkyjn" path="res://Scripts/WORLD_sc/ShipController.gd" id="1_xyd1p"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_h5k0y"]
-size = Vector3(14.2374, 2.54111, 2.77699)
+size = Vector3(9.01664, 2.54111, 2.23563)
 
 [sub_resource type="GDScript" id="GDScript_xyd1p"]
 resource_name = "RosMan_2"
@@ -215,7 +215,7 @@ collision_mask = 0
 script = ExtResource("1_xyd1p")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.465193, 0.731617, -0.0815811)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.201505, 0.731617, -0.0677704)
 shape = SubResource("BoxShape3D_h5k0y")
 debug_color = Color(0.239846, 0.589756, 0, 0.419608)
 
@@ -228,6 +228,7 @@ fov = 100.0
 near = 0.1
 
 [node name="RosManager" type="Node3D" parent="." node_paths=PackedStringArray("nav_lidar_node", "depth_lidar_node")]
+visible = false
 script = SubResource("GDScript_xyd1p")
 offline_test_mode = false
 socket_url = "ws://172.20.10.3:9090"
