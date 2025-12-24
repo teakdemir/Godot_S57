@@ -9,20 +9,23 @@ size = Vector3(14.2374, 2.54111, 2.77699)
 
 [sub_resource type="GDScript" id="GDScript_xyd1p"]
 resource_name = "RosMan_2"
-script/source = "extends Node3D # Veya RigidBody3D, mevcut yapın neyse
+script/source = "extends Node3D
 
+# --- AYARLAR ---
+@export var offline_test_mode: bool = true # <-- TEST İÇİN BUNU AÇIK (ON) YAP
 @export var socket_url: String = \"ws://192.168.98.206:9090\"
+@export var publish_rate: float = 10.0
 
 # --- LIDAR 1: ENGEL TESPİTİ (YATAY) ---
 @export_group(\"Navigasyon Lidar\")
-@export var nav_lidar_node: Node3D # Editörden LidarHorizontal'ı buraya sürükle
+@export var nav_lidar_node: Node3D 
 @export var nav_range: float = 50.0
 @export var nav_rays: int = 72 # Işın sayısı
-@export var show_nav_debug: bool = true # Çizgileri görmek için
+@export var show_nav_debug: bool = true 
 
 # --- LIDAR 2: DERİNLİK/TABAN (DİKEY) ---
 @export_group(\"Derinlik Lidar\")
-@export var depth_lidar_node: Node3D # Editörden LidarDepth'i buraya sürükle
+@export var depth_lidar_node: Node3D 
 @export var depth_range: float = 20.0
 @export var depth_rays: int = 10 
 @export var show_depth_debug: bool = true
@@ -31,74 +34,143 @@ var socket = WebSocketPeer.new()
 var nav_raycasts: Array[RayCast3D] = []
 var depth_raycasts: Array[RayCast3D] = []
 var last_publish_time = 0.0
+var is_connected = false
 
 @onready var real_ship = get_parent()
 
 func _ready():
-	# ... (Bağlantı kodları aynı) ...
-	socket.connect_to_url(socket_url)
-	
-	# İki Lidar'ı da kuruyoruz
+	# Lidar kurulumlarını her zaman yap 
 	if nav_lidar_node:
 		_setup_lidar(nav_lidar_node, nav_rays, nav_range, 360.0, nav_raycasts, Color.RED)
 	if depth_lidar_node:
-		_setup_lidar(depth_lidar_node, depth_rays, depth_range, 30.0, depth_raycasts, Color.BLUE) # 30 derece koni
+		# 30 derece koni, Mavi renk
+		_setup_lidar(depth_lidar_node, depth_rays, depth_range, 30.0, depth_raycasts, Color.BLUE)
+
+	# Bağlantı Mantığı
+	if offline_test_mode:
+		print(\"🛠️ OFFLINE MOD: Soket bağlantısı kapalı. Sadece Lidar ışınları gösteriliyor.\")
+	else:
+		print(\"📡 RADAR: Bağlantı kuruluyor... \", socket_url)
+		socket.connect_to_url(socket_url)
 
 func _setup_lidar(parent_node, count, dist, fov_angle, array_ref, color):
 	for i in range(count):
 		var ray = RayCast3D.new()
 		parent_node.add_child(ray)
 		
-		# Açıyı ayarla
 		var angle = 0.0
 		if fov_angle >= 360:
-			angle = i * (TAU / count) # Tam tur
+			angle = i * (TAU / count)
 		else:
-			# Belirli bir açıda tarama (örn. aşağı doğru koni)
-			angle = deg_to_rad(-fov_angle/2 + (i * fov_angle / (count-1)))
+			if count > 1:
+				angle = deg_to_rad(-fov_angle/2 + (i * fov_angle / (count-1)))
+			else:
+				angle = 0.0
 			
-		# RayCast Yönü (Local Z eksenine göre)
+		# RayCast Yönü
 		if parent_node == nav_lidar_node:
+			# Yatay Tarama (Y ekseni etrafında dön)
 			ray.target_position = Vector3(dist, 0, 0).rotated(Vector3.UP, angle)
 		else:
+			# Dikey Tarama (X ekseni etrafında dön - aşağı doğru)
 			ray.target_position = Vector3(0, -dist, 0).rotated(Vector3.RIGHT, angle)
-			 
+			
 		ray.enabled = true
-		# Debug için görünürlük
 		ray.debug_shape_custom_color = color
 		ray.debug_shape_thickness = 2
 		array_ref.append(ray)
 
 func _process(delta):
-	# ... (Socket poll işlemleri aynı) ...
+	# Test modundaysak ağ işlemlerini atla
+	if offline_test_mode:
+		return
+
+	socket.poll()
+	var state = socket.get_ready_state()
 	
-	# Debug Çizgilerini Canlı Tut (Godot Editörde: Debug -> Visible Collision Shapes AÇIK OLMALI)
-	pass
+	if state == WebSocketPeer.STATE_OPEN:
+		if not is_connected:
+			_on_connection_success()
+			
+		while socket.get_available_packet_count():
+			var packet = socket.get_packet().get_string_from_utf8()
+			_handle_incoming(packet)
+			
+		last_publish_time += delta
+		if last_publish_time >= (1.0 / publish_rate):
+			_publish_data()
+			last_publish_time = 0.0
+			
+	elif state == WebSocketPeer.STATE_CLOSED:
+		if is_connected:
+			print(\"❌ RADAR: Bağlantı koptu!\")
+			is_connected = false
+
+func _on_connection_success():
+	print(\"✅ RADAR: BAĞLANTI BAŞARILI!\")
+	is_connected = true
+	# Komut dinle
+	var sub_msg = {\"op\": \"subscribe\", \"topic\": \"/cmd_vel\", \"type\": \"geometry_msgs/msg/Twist\"}
+	socket.send_text(JSON.stringify(sub_msg))
+	# Odom ve Lidar yayınla
+	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/odom\", \"type\": \"nav_msgs/msg/Odometry\"}))
+	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/scan\", \"type\": \"sensor_msgs/msg/LaserScan\"}))
+	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/depth_scan\", \"type\": \"sensor_msgs/msg/LaserScan\"}))
 
 func _publish_data():
-	# ... (Odom kodları aynı) ...
+	var time = Time.get_unix_time_from_system()
+	var secs = int(time)
+	var nsecs = int((time - secs) * 1e9)
 	
-	# --- SCAN 1: NAVIGASYON ---
+	# 1. ODOMETRİ YAYINI
+	if real_ship:
+		var pos = real_ship.global_position
+		var rot = real_ship.global_transform.basis.get_rotation_quaternion()
+		var lin_vel = real_ship.linear_velocity
+		var ang_vel = real_ship.angular_velocity
+		
+		var odom_msg = {
+			\"op\": \"publish\",
+			\"topic\": \"/odom\",
+			\"msg\": {
+				\"header\": { \"stamp\": { \"sec\": secs, \"nanosec\": nsecs }, \"frame_id\": \"odom\" },
+				\"child_frame_id\": \"base_link\",
+				\"pose\": { \"pose\": {
+					\"position\": { \"x\": -pos.z, \"y\": -pos.x, \"z\": pos.y },
+					\"orientation\": { \"x\": rot.x, \"y\": rot.z, \"z\": -rot.y, \"w\": rot.w }
+				}},
+				\"twist\": { \"twist\": {
+					\"linear\": { \"x\": lin_vel.length(), \"y\": 0.0, \"z\": 0.0 },
+					\"angular\": { \"x\": 0.0, \"y\": 0.0, \"z\": ang_vel.y }
+				}}
+			}
+		}
+		socket.send_text(JSON.stringify(odom_msg))
+	
+	# 2. NAVIGASYON LIDAR YAYINI (/scan)
 	var nav_ranges = []
 	for ray in nav_raycasts:
 		if ray.is_colliding():
 			nav_ranges.append(ray.global_position.distance_to(ray.get_collision_point()))
 		else:
-			nav_ranges.append(nav_range + 1.0) # Sonsuz
+			nav_ranges.append(nav_range + 1.0)
 			
-	# Bu mesajı /scan topic'ine gönderiyoruz
 	var nav_msg = {
 		\"op\": \"publish\",
-		\"topic\": \"/scan\", # Navigasyon Lidar'ı standart /scan kullanır
-		\"msg\": { 
-			\"ranges\": nav_ranges, 
-			\"angle_max\": 2*PI, \"angle_min\": 0.0, \"range_max\": nav_range 
-			# (Header vs. detayları önceki koddaki gibi doldur)
+		\"topic\": \"/scan\",
+		\"msg\": {
+			\"header\": { \"stamp\": { \"sec\": secs, \"nanosec\": nsecs }, \"frame_id\": \"base_link\" },
+			\"angle_min\": 0.0,
+			\"angle_max\": 2.0 * PI,
+			\"angle_increment\": (2.0 * PI) / float(nav_rays),
+			\"range_min\": 0.5,
+			\"range_max\": nav_range,
+			\"ranges\": nav_ranges
 		}
 	}
 	socket.send_text(JSON.stringify(nav_msg))
 
-	# --- SCAN 2: DERİNLİK ---
+	# 3. DERİNLİK LIDAR YAYINI (/depth_scan)
 	var depth_ranges = []
 	for ray in depth_raycasts:
 		if ray.is_colliding():
@@ -106,17 +178,30 @@ func _publish_data():
 		else:
 			depth_ranges.append(depth_range + 1.0)
 
-	# Bunu farklı bir topic'e gönderelim
 	var depth_msg = {
 		\"op\": \"publish\",
-		\"topic\": \"/depth_scan\", # Yeni Topic!
-		\"msg\": { 
-			\"ranges\": depth_ranges, 
-			\"range_max\": depth_range 
-			 # (Burası da LaserScan formatında olabilir veya Range array)
+		\"topic\": \"/depth_scan\",
+		\"msg\": {
+			\"header\": { \"stamp\": { \"sec\": secs, \"nanosec\": nsecs }, \"frame_id\": \"base_link\" },
+			\"angle_min\": deg_to_rad(-15.0), # 30 derecelik koni (-15 ila +15)
+			\"angle_max\": deg_to_rad(15.0),
+			\"angle_increment\": deg_to_rad(30.0) / float(depth_rays),
+			\"range_min\": 0.5,
+			\"range_max\": depth_range,
+			\"ranges\": depth_ranges
 		}
 	}
 	socket.send_text(JSON.stringify(depth_msg))
+
+func _handle_incoming(json_str):
+	var json = JSON.new()
+	if json.parse(json_str) == OK:
+		var data = json.get_data()
+		if data.has(\"topic\") and data[\"topic\"] == \"/cmd_vel\":
+			var msg = data[\"msg\"]
+			if real_ship:
+				real_ship.ros_throttle = clamp(msg[\"linear\"][\"x\"], -1.0, 1.0)
+				real_ship.ros_steering = clamp(msg[\"angular\"][\"z\"], -1.0, 1.0)
 "
 
 [node name="Ship" type="RigidBody3D"]
