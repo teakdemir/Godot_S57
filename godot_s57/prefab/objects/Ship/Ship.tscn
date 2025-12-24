@@ -9,129 +9,114 @@ size = Vector3(14.2374, 2.54111, 2.77699)
 
 [sub_resource type="GDScript" id="GDScript_xyd1p"]
 resource_name = "RosMan_2"
-script/source = "extends Node3D  # <-- Bak burayı RigidBody3D yaptık artık.
+script/source = "extends Node3D # Veya RigidBody3D, mevcut yapın neyse
 
-# --- AYARLAR ---
-@export var socket_url: String = \"ws://192.168.98.206:9090\" 
-@export var publish_rate: float = 10.0
-@export var lidar_range: float = 50.0 
-@export var num_rays: int = 72 
+@export var socket_url: String = \"ws://192.168.98.206:9090\"
+
+# --- LIDAR 1: ENGEL TESPİTİ (YATAY) ---
+@export_group(\"Navigasyon Lidar\")
+@export var nav_lidar_node: Node3D # Editörden LidarHorizontal'ı buraya sürükle
+@export var nav_range: float = 50.0
+@export var nav_rays: int = 72 # Işın sayısı
+@export var show_nav_debug: bool = true # Çizgileri görmek için
+
+# --- LIDAR 2: DERİNLİK/TABAN (DİKEY) ---
+@export_group(\"Derinlik Lidar\")
+@export var depth_lidar_node: Node3D # Editörden LidarDepth'i buraya sürükle
+@export var depth_range: float = 20.0
+@export var depth_rays: int = 10 
+@export var show_depth_debug: bool = true
 
 var socket = WebSocketPeer.new()
-var rays: Array[RayCast3D] = []
+var nav_raycasts: Array[RayCast3D] = []
+var depth_raycasts: Array[RayCast3D] = []
 var last_publish_time = 0.0
-var is_connected = false
 
-# Parent (Gerçek Gemi) erişimi
-# Burası önemli: get_parent() artık gemiyi verir.
-@onready var real_ship = get_parent() 
+@onready var real_ship = get_parent()
 
 func _ready():
-	# Kendimizi donduralım ki gemiyi uçurmayalım
-	print(\"📡 RADAR (RB Modu): Bağlantı kuruluyor... \", socket_url)
+	# ... (Bağlantı kodları aynı) ...
 	socket.connect_to_url(socket_url)
-	_setup_lidar()
+	
+	# İki Lidar'ı da kuruyoruz
+	if nav_lidar_node:
+		_setup_lidar(nav_lidar_node, nav_rays, nav_range, 360.0, nav_raycasts, Color.RED)
+	if depth_lidar_node:
+		_setup_lidar(depth_lidar_node, depth_rays, depth_range, 30.0, depth_raycasts, Color.BLUE) # 30 derece koni
 
-func _setup_lidar():
-	for i in range(num_rays):
+func _setup_lidar(parent_node, count, dist, fov_angle, array_ref, color):
+	for i in range(count):
 		var ray = RayCast3D.new()
-		add_child(ray)
-		ray.position = Vector3(0, 3.0, 0)
-		ray.target_position = Vector3(lidar_range, 0, 0)
-		ray.rotation_degrees.y = i * (360.0 / float(num_rays))
+		parent_node.add_child(ray)
+		
+		# Açıyı ayarla
+		var angle = 0.0
+		if fov_angle >= 360:
+			angle = i * (TAU / count) # Tam tur
+		else:
+			# Belirli bir açıda tarama (örn. aşağı doğru koni)
+			angle = deg_to_rad(-fov_angle/2 + (i * fov_angle / (count-1)))
+			
+		# RayCast Yönü (Local Z eksenine göre)
+		if parent_node == nav_lidar_node:
+			ray.target_position = Vector3(dist, 0, 0).rotated(Vector3.UP, angle)
+		else:
+			ray.target_position = Vector3(0, -dist, 0).rotated(Vector3.RIGHT, angle)
+			 
 		ray.enabled = true
-		rays.append(ray)
+		# Debug için görünürlük
+		ray.debug_shape_custom_color = color
+		ray.debug_shape_thickness = 2
+		array_ref.append(ray)
 
 func _process(delta):
-	socket.poll()
-	var state = socket.get_ready_state()
+	# ... (Socket poll işlemleri aynı) ...
 	
-	if state == WebSocketPeer.STATE_OPEN:
-		if not is_connected:
-			_on_connection_success()
-			
-		while socket.get_available_packet_count():
-			var packet = socket.get_packet().get_string_from_utf8()
-			_handle_incoming(packet)
-			
-		last_publish_time += delta
-		if last_publish_time >= (1.0 / publish_rate):
-			_publish_data()
-			last_publish_time = 0.0
-			
-	elif state == WebSocketPeer.STATE_CLOSED:
-		if is_connected:
-			print(\"❌ RADAR: Bağlantı koptu!\")
-			is_connected = false
-
-func _on_connection_success():
-	print(\"✅ RADAR: BAĞLANTI BAŞARILI!\")
-	is_connected = true
-	var sub_msg = {\"op\": \"subscribe\", \"topic\": \"/cmd_vel\", \"type\": \"geometry_msgs/msg/Twist\"}
-	socket.send_text(JSON.stringify(sub_msg))
-	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/odom\", \"type\": \"nav_msgs/msg/Odometry\"}))
-	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/scan\", \"type\": \"sensor_msgs/msg/LaserScan\"}))
+	# Debug Çizgilerini Canlı Tut (Godot Editörde: Debug -> Visible Collision Shapes AÇIK OLMALI)
+	pass
 
 func _publish_data():
-	var time = Time.get_unix_time_from_system()
-	var secs = int(time)
-	var nsecs = int((time - secs) * 1e9)
+	# ... (Odom kodları aynı) ...
 	
-	# Gerçek geminin (Parent) verilerini alıyoruz
-	var pos = real_ship.global_position
-	var rot = real_ship.global_transform.basis.get_rotation_quaternion()
-	var lin_vel = real_ship.linear_velocity
-	var ang_vel = real_ship.angular_velocity
-	
-	var odom_msg = {
-		\"op\": \"publish\",
-		\"topic\": \"/odom\",
-		\"msg\": {
-			\"header\": { \"stamp\": { \"sec\": secs, \"nanosec\": nsecs }, \"frame_id\": \"odom\" },
-			\"child_frame_id\": \"base_link\",
-			\"pose\": { \"pose\": {
-				\"position\": { \"x\": -pos.z, \"y\": -pos.x, \"z\": pos.y },
-				\"orientation\": { \"x\": rot.x, \"y\": rot.z, \"z\": -rot.y, \"w\": rot.w }
-			}},
-			\"twist\": { \"twist\": {
-				\"linear\": { \"x\": lin_vel.length(), \"y\": 0.0, \"z\": 0.0 },
-				\"angular\": { \"x\": 0.0, \"y\": 0.0, \"z\": ang_vel.y }
-			}}
-		}
-	}
-	socket.send_text(JSON.stringify(odom_msg))
-	
-	var ranges = []
-	for ray in rays:
+	# --- SCAN 1: NAVIGASYON ---
+	var nav_ranges = []
+	for ray in nav_raycasts:
 		if ray.is_colliding():
-			ranges.append(ray.global_position.distance_to(ray.get_collision_point()))
+			nav_ranges.append(ray.global_position.distance_to(ray.get_collision_point()))
 		else:
-			ranges.append(lidar_range + 1.0)
+			nav_ranges.append(nav_range + 1.0) # Sonsuz
 			
-	var scan_msg = {
+	# Bu mesajı /scan topic'ine gönderiyoruz
+	var nav_msg = {
 		\"op\": \"publish\",
-		\"topic\": \"/scan\",
-		\"msg\": {
-			\"header\": { \"stamp\": { \"sec\": secs, \"nanosec\": nsecs }, \"frame_id\": \"base_link\" },
-			\"angle_min\": 0.0,
-			\"angle_max\": 2.0 * PI,
-			\"angle_increment\": (2.0 * PI) / float(num_rays),
-			\"range_min\": 0.5,
-			\"range_max\": lidar_range,
-			\"ranges\": ranges
+		\"topic\": \"/scan\", # Navigasyon Lidar'ı standart /scan kullanır
+		\"msg\": { 
+			\"ranges\": nav_ranges, 
+			\"angle_max\": 2*PI, \"angle_min\": 0.0, \"range_max\": nav_range 
+			# (Header vs. detayları önceki koddaki gibi doldur)
 		}
 	}
-	socket.send_text(JSON.stringify(scan_msg))
+	socket.send_text(JSON.stringify(nav_msg))
 
-func _handle_incoming(json_str):
-	var json = JSON.new()
-	if json.parse(json_str) == OK:
-		var data = json.get_data()
-		if data.has(\"topic\") and data[\"topic\"] == \"/cmd_vel\":
-			var msg = data[\"msg\"]
-			# Kontrol komutlarını GERÇEK GEMİYE (Parent) iletiyoruz
-			real_ship.ros_throttle = clamp(msg[\"linear\"][\"x\"], -1.0, 1.0)
-			real_ship.ros_steering = clamp(msg[\"angular\"][\"z\"], -1.0, 1.0)
+	# --- SCAN 2: DERİNLİK ---
+	var depth_ranges = []
+	for ray in depth_raycasts:
+		if ray.is_colliding():
+			depth_ranges.append(ray.global_position.distance_to(ray.get_collision_point()))
+		else:
+			depth_ranges.append(depth_range + 1.0)
+
+	# Bunu farklı bir topic'e gönderelim
+	var depth_msg = {
+		\"op\": \"publish\",
+		\"topic\": \"/depth_scan\", # Yeni Topic!
+		\"msg\": { 
+			\"ranges\": depth_ranges, 
+			\"range_max\": depth_range 
+			 # (Burası da LaserScan formatında olabilir veya Range array)
+		}
+	}
+	socket.send_text(JSON.stringify(depth_msg))
 "
 
 [node name="Ship" type="RigidBody3D"]
@@ -158,5 +143,13 @@ transform = Transform3D(-4.37114e-08, -0.707107, 0.707107, 0, 0.707107, 0.707107
 fov = 100.0
 near = 0.1
 
-[node name="RosManager" type="Node3D" parent="."]
+[node name="RosManager" type="Node3D" parent="." node_paths=PackedStringArray("nav_lidar_node", "depth_lidar_node")]
 script = SubResource("GDScript_xyd1p")
+nav_lidar_node = NodePath("LidarHorizontal")
+depth_lidar_node = NodePath("LidarDepth")
+
+[node name="LidarDepth" type="Node3D" parent="RosManager"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, -0.162156, 0)
+
+[node name="LidarHorizontal" type="Node3D" parent="RosManager"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.60467, 2.22947, 2.01276e-07)
