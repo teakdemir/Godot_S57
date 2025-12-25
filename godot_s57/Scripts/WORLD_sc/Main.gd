@@ -143,6 +143,33 @@ func _input(event):
 	if event is InputEventKey and event.pressed and event.keycode == KEY_O:
 		toggle_camera_mode()
 
+	# --- HEDEF SEÇİMİ (GARANTİ YÖNTEM - Plane) ---
+	# Sadece Serbest Kamera modundaysak ve UI kapalıysa çalışır
+	if not is_ship_mode and not ui_canvas.visible:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			
+			# 1. Kameradan ışın yönünü ve başlangıcını al
+			var from = main_camera.project_ray_origin(event.position)
+			var dir = main_camera.project_ray_normal(event.position)
+			
+			# 2. Matematiksel Deniz Düzlemi Oluştur (Y = 0)
+			# Bu düzlem sonsuzdur, collider gerekmez.
+			var sea_plane = Plane(Vector3.UP, 0)
+			
+			# 3. Kesişim Noktasını Bul
+			var intersect_point = sea_plane.intersects_ray(from, dir)
+			
+			# 4. Hedefi Gönder
+			if intersect_point:
+				print("📍 HEDEF SEÇİLDİ (Deniz Düzlemi): ", intersect_point)
+				
+				# Gemi ve RosManager kontrolü
+				if ship_manager.current_ship and ship_manager.current_ship.has_node("RosManager"):
+					var ros_manager = ship_manager.current_ship.get_node("RosManager")
+					ros_manager.publish_goal(intersect_point)
+				else:
+					print("⚠️ HATA: Gemi veya RosManager bulunamadı!")
+
 func toggle_camera_mode():
 	# Gemi yoksa veya hala yerleştiriyorsak geçiş yapma
 	if not ship_manager.current_ship or ship_manager.is_placing_mode:
@@ -155,7 +182,8 @@ func toggle_camera_mode():
 	
 	# Geminin içindeki child node'ları bul
 	var ship_cam = ship.get_node_or_null("ChaseCamera")
-	var ship_controller = ship.get_node_or_null("ShipController")
+	# ShipController'a artık ihtiyacımız yok ama değişkeni hata vermesin diye tutabiliriz veya silebiliriz.
+	# Aşağıda kullanmadığımız için sorun yok.
 	
 	if is_ship_mode:
 		print("Mod: GEMİ KONTROLÜ")
@@ -169,18 +197,12 @@ func toggle_camera_mode():
 		if ship_cam:
 			ship_cam.current = true
 		
-		if ship_controller:
-			ship_controller.is_active = true
-			
+		# Mouse'u kilitle
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		
 	else:
 		print("Mod: SERBEST KAMERA")
 		
-		#Gemiyi boşa al 
-		if ship_controller:
-			ship_controller.is_active = false
-			
 		#Serbest kameraya dön
 		if ship_cam:
 			ship_cam.current = false
@@ -189,3 +211,6 @@ func toggle_camera_mode():
 		
 		camera_controller.set_physics_process(true)
 		camera_controller.set_process(true)
+		
+		# Serbest moda geçince mouse'u görünür yap
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)

@@ -1,48 +1,27 @@
 extends RigidBody3D
 
-var is_active: bool = false # Kamera o tuşu için
-
 # --- MOTOR AYARLARI ---
-@export var engine_power = 500.0
-@export var turn_torque = 200.0
+@export var engine_power = 50000.0 # Gemiyi itmek için gereken güç (Ağırlığa göre artır)
+@export var turn_torque = 20000.0  # Dönüş torku
 
-# --- ROS / OTONOM DEĞİŞKENLERİ ---
-var autonomous_mode: bool = true
+# --- ROS KONTROL DEĞİŞKENLERİ ---
+# Bu değişkenleri RosManager sürekli güncelleyecek
 var ros_throttle: float = 0.0
 var ros_steering: float = 0.0
 
 func _physics_process(delta):
-	var throttle_input = 0.0
-	var steer_input = 0.0
+	# ROS'tan gelen değerler zaten -1.0 ile 1.0 arasında geliyor.
+	# Direkt motor gücüyle çarpıp uyguluyoruz.
 	
-	# --- KONTROL MANTIĞI ---
-	if autonomous_mode:
-		# ROS'tan gelen veriyi uygula
-		throttle_input = ros_throttle
-		steer_input = ros_steering
+	# 1. İleri/Geri Hareketi
+	if abs(ros_throttle) > 0.01:
+		# Geminin baktığı yöne (-basis.z) kuvvet uygula
+		apply_central_force(-global_transform.basis.z * ros_throttle * engine_power)
 		
-		# Acil durum: Space tuşuna basarsan manuele geç (sadece gemi aktifse)
-		if is_active and Input.is_action_pressed("ui_accept"): 
-			autonomous_mode = false
-			print("⚠️ MANUEL KONTROL (WASD) DEVRALINDI!")
-			
-	else:
-		# Manuel Mod (Sadece kamera bu gemideyse çalışsın)
-		if is_active:
-			throttle_input = Input.get_axis("ui_down", "ui_up")
-			steer_input = Input.get_axis("ui_right", "ui_left")
-			
-			# 'R' tuşuna basınca tekrar Otonoma (ROS'a) dön
-			if Input.is_key_pressed(KEY_R):
-				autonomous_mode = true
-				print("🤖 OTONOM MOD AKTİF")
+	# 2. Dönüş Hareketi
+	if abs(ros_steering) > 0.01:
+		# Y ekseni etrafında tork uygula
+		apply_torque(Vector3.UP * ros_steering * turn_torque)
 
-	# --- FİZİK KUVVETLERİ ---
-
-	if abs(throttle_input) > 0.01:
-		# Geminin baktığı yöne (-basis.z) doğru it
-		apply_central_force(-global_transform.basis.z * throttle_input * engine_power)
-		
-	if abs(steer_input) > 0.01:
-		# Sağa/Sola döndürme torku uygula
-		apply_torque(Vector3.UP * steer_input * turn_torque)
+	# Not: Eğer gemi sonsuza kadar kayıyorsa Inspector'dan 
+	# Linear Damping ve Angular Damping değerlerini artır (örn: 1.0 veya 2.0 yap).
