@@ -12,26 +12,25 @@ resource_name = "RosMan_2"
 script/source = "extends Node3D
 
 # --- AYARLAR ---
-@export var offline_test_mode: bool = false # ✅ GERİ GELDİ: Test için AÇIK, Bağlantı için KAPALI yap
-@export var socket_url: String = \"\" # Örn: ws://172.20.10.3:9090
+@export var offline_test_mode: bool = false
+@export var socket_url: String = \"\" 
 @export var publish_rate: float = 10.0
 
-# --- LIDAR 1: Yatay ---
-const SCAN_FRAME_ID = \"base_link\"
+# --- LIDAR VE FRAME AYARLARI ---
+const SCAN_FRAME_ID = \"base_scan\"
 const ODOM_FRAME_ID = \"odom\"
+const ROBOT_BASE_FRAME = \"base_link\"
+
+# Lidar Açıları
+const ANGLE_MIN = -PI/2
+const ANGLE_MAX = PI/2
+const RANGE_MIN = 0.5
 
 @export_group(\"Navigasyon Lidar\")
 @export var nav_lidar_node: Node3D 
-@export var nav_range: float = 50.0
 @export var nav_rays: int = 72 
+@export var nav_range: float = 50.0 # ✅ GERİ EKLENDİ (Hatayı çözen satır)
 @export var show_nav_debug: bool = true 
-
-# --- LIDAR 2: DERİNLİK ---
-# @export_group(\"Derinlik Lidar\")
-# @export var depth_lidar_node: Node3D 
-# @export var depth_range: float = 20.0
-# @export var depth_rays: int = 10 
-# @export var show_depth_debug: bool = true
 
 # --- SABİTLER ---
 const ODOM_COVARIANCE_ARRAY = [
@@ -45,24 +44,23 @@ const ODOM_COVARIANCE_ARRAY = [
 
 var socket = WebSocketPeer.new()
 var nav_raycasts: Array[RayCast3D] = []
-# var depth_raycasts: Array[RayCast3D] = [] 
 var last_publish_time = 0.0
 var is_connected = false
 
 @onready var real_ship = get_parent()
 
 func _ready():
-	# LIDAR KURULUMU 
+	#LIDAR KURULUMU
 	if nav_lidar_node:
-		# 180 derece tarama
+		# 180 derece tarama ve nav_range kullanımı
 		_setup_lidar(nav_lidar_node, nav_rays, nav_range, 180.0, nav_raycasts, Color.RED)
 	
-	# BĞLANTI MANTIĞI 
+	#BAĞLANTI
 	if offline_test_mode:
-		print(\"🛠️ OFFLINE MOD: Soket kapalı. Sadece Lidar ışınları çalışır.\")
+		print(\"🛠️ OFFLINE MOD: Soket kapalı.\")
 	else:
 		if socket_url == \"\":
-			print(\"⚠️ HATA: Socket URL boş! Inspector'dan IP girin.\")
+			print(\"⚠️ HATA: Socket URL boş!\")
 			return
 		print(\"📡 RADAR: Bağlantı kuruluyor... \", socket_url)
 		socket.connect_to_url(socket_url)
@@ -79,9 +77,8 @@ func _setup_lidar(parent_node, count, dist, fov_angle, array_ref, color):
 			if count > 1: angle = deg_to_rad(-fov_angle/2 + (i * fov_angle / (count-1)))
 			else: angle = 0.0
 			
-		# Navigasyon Lidar (Yatay)
+		# Navigasyon Lidar (Yatay) - 180 derece (angle + PI)
 		if parent_node == nav_lidar_node:
-			
 			ray.target_position = Vector3(dist, 0, 0).rotated(Vector3.UP, angle + PI)
 		else:
 			ray.target_position = Vector3(0, -dist, 0).rotated(Vector3.RIGHT, angle)
@@ -91,6 +88,7 @@ func _setup_lidar(parent_node, count, dist, fov_angle, array_ref, color):
 		ray.debug_shape_thickness = 2
 		array_ref.append(ray)
 
+# --- Godottan Ros'a dönüşüm fonk---
 func get_ros_timestamp() -> Dictionary:
 	var now_usec = Time.get_ticks_usec()
 	var seconds = floor(now_usec / 1000000.0)
@@ -113,6 +111,67 @@ func create_twist_message(ship_node):
 		\"angular\": { \"x\": -ang.z, \"y\": -ang.x, \"z\": ang.y }
 	}
 
+#Mesajcılar
+func create_tf_message(timestamp, ship_node) -> Dictionary:
+	var global_t = ship_node.global_transform
+	var pos_ros = position_godot_to_ros(global_t.origin)
+	var quat_ros = orientation_godot_to_ros(global_t.basis)
+	
+	var transform_stamped = {
+		\"header\": { \"stamp\": timestamp, \"frame_id\": ODOM_FRAME_ID },
+		\"child_frame_id\": ROBOT_BASE_FRAME,
+		\"transform\": { \"translation\": pos_ros, \"rotation\": quat_ros }
+	}
+	return { \"transforms\": [transform_stamped] }
+
+func create_odom_message(timestamp, ship_node) -> Dictionary:
+	var global_t = ship_node.global_transform
+	var pos_ros = position_godot_to_ros(global_t.origin)
+	var quat_ros = orientation_godot_to_ros(global_t.basis)
+	var twist_ros = create_twist_message(ship_node)
+	
+	return {
+		\"header\": { \"stamp\": timestamp, \"frame_id\": ODOM_FRAME_ID },
+		\"child_frame_id\": ROBOT_BASE_FRAME,
+		\"pose\": {
+			\"pose\": { \"position\": pos_ros, \"orientation\": quat_ros },
+			\"covariance\": ODOM_COVARIANCE_ARRAY
+		},
+		\"twist\": {
+			\"twist\": twist_ros,
+			\"covariance\": ODOM_COVARIANCE_ARRAY
+		}
+	}
+
+func create_scan_message(timestamp, raycast_array: Array) -> Dictionary:
+	var ranges = []
+	for ray in raycast_array:
+		ray.force_raycast_update()
+		# Varsayılan olarak menzil dışı (nav_range)
+		var distance = nav_range 
+		
+		if ray.is_colliding():
+			distance = ray.get_collision_point().distance_to(ray.global_transform.origin)
+			# Inspector'dan girilen nav_range değerini kullan!!
+			if distance > nav_range: distance = nav_range
+			elif distance < RANGE_MIN: distance = RANGE_MIN
+				
+		ranges.append(distance)
+				
+	return {
+		\"header\": { \"stamp\": timestamp, \"frame_id\": SCAN_FRAME_ID },
+		\"angle_min\": ANGLE_MIN,
+		\"angle_max\": ANGLE_MAX,
+		\"angle_increment\": PI / float(nav_rays),
+		\"time_increment\": 0.0,
+		\"scan_time\": 0.0,
+		\"range_min\": RANGE_MIN,
+		\"range_max\": nav_range,
+		\"ranges\": ranges,
+		\"intensities\": []
+	}
+
+#Mesajı Yayınla
 func publish_goal(godot_goal_pos: Vector3):
 	var ros_pos = position_godot_to_ros(godot_goal_pos)
 	var goal_msg = { \"x\": ros_pos.x, \"y\": ros_pos.y, \"z\": 0.0 }
@@ -123,10 +182,10 @@ func publish_goal(godot_goal_pos: Vector3):
 	else:
 		print(\"🛠️ OFFLINE MOD: Hedef sadece ekrana basıldı: \", goal_msg)
 
+#Asıl döngü
+
 func _process(delta):
-	# Eğer Offline Moddaysak ağ işlemlerini pas geçiyoruz
-	if offline_test_mode:
-		return
+	if offline_test_mode: return
 
 	socket.poll()
 	var state = socket.get_ready_state()
@@ -150,6 +209,7 @@ func _on_connection_success():
 	
 	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/odom\", \"type\": \"nav_msgs/msg/Odometry\"}))
 	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/scan\", \"type\": \"sensor_msgs/msg/LaserScan\"}))
+	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/tf\", \"type\": \"tf2_msgs/msg/TFMessage\"}))
 	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/goal_pose\", \"type\": \"geometry_msgs/msg/Point\"}))
 	socket.send_text(JSON.stringify({\"op\": \"subscribe\", \"topic\": \"/cmd_vel\", \"type\": \"geometry_msgs/msg/Twist\"}))
 
@@ -158,44 +218,15 @@ func _publish_data():
 	
 	#ODOMETRİ
 	if real_ship:
-		var global_t = real_ship.global_transform
-		var odom_msg = {
-			\"header\": { \"stamp\": timestamp, \"frame_id\": ODOM_FRAME_ID },
-			\"child_frame_id\": SCAN_FRAME_ID,
-			\"pose\": {
-				\"pose\": {
-					\"position\": position_godot_to_ros(global_t.origin),
-					\"orientation\": orientation_godot_to_ros(global_t.basis)
-				},
-				\"covariance\": ODOM_COVARIANCE_ARRAY
-			},
-			\"twist\": {
-				\"twist\": create_twist_message(real_ship),
-				\"covariance\": ODOM_COVARIANCE_ARRAY
-			}
-		}
+		var odom_msg = create_odom_message(timestamp, real_ship)
 		_send_ros_msg(\"publish\", \"/odom\", odom_msg)
+		
+		#TF
+		var tf_msg = create_tf_message(timestamp, real_ship)
+		_send_ros_msg(\"publish\", \"/tf\", tf_msg)
 
-	#NAVIGASYON LIDAR
-	var ranges = []
-	for ray in nav_raycasts:
-		if ray.is_colliding():
-			ranges.append(ray.global_position.distance_to(ray.get_collision_point()))
-		else:
-			ranges.append(nav_range + 1.0)
-			
-	var scan_msg = {
-		\"header\": { \"stamp\": timestamp, \"frame_id\": SCAN_FRAME_ID },
-		\"angle_min\": -PI/2, 
-		\"angle_max\": PI/2,
-		\"angle_increment\": PI / float(nav_rays),
-		\"time_increment\": 0.0,
-		\"scan_time\": 0.0,
-		\"range_min\": 0.5,
-		\"range_max\": nav_range,
-		\"ranges\": ranges,
-		\"intensities\": []
-	}
+	#LIDAR
+	var scan_msg = create_scan_message(timestamp, nav_raycasts)
 	_send_ros_msg(\"publish\", \"/scan\", scan_msg)
 
 func _send_ros_msg(op, topic, msg):
@@ -238,6 +269,7 @@ near = 0.1
 
 [node name="RosManager" type="Node3D" parent="." node_paths=PackedStringArray("nav_lidar_node")]
 script = SubResource("GDScript_xyd1p")
+offline_test_mode = true
 socket_url = "ws://172.20.10.3:9090"
 nav_lidar_node = NodePath("LidarHorizontal")
 nav_rays = 36
