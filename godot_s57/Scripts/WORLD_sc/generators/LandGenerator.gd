@@ -52,7 +52,6 @@ func build_landmasses(land_polygons: Array, scale: int) -> Node3D:
 func build_coastlines(_coastlines: Array, _scale: int) -> Node3D:
 	return null 
 
-#EĞİM -Geometry2D Offset ile
 func _create_sloped_safe_chunk(polygon_points: Array, land_props: Dictionary, scale: int, land_material: Material) -> Node3D:
 	var sanitized: Array = owner._sanitize_polygon(polygon_points)
 	if sanitized.size() < 3: return null
@@ -66,30 +65,23 @@ func _create_sloped_safe_chunk(polygon_points: Array, land_props: Dictionary, sc
 	# 1. Halka: KIYI (COAST)
 	var coast_planar: Array[Vector2] = _build_planar_loop(world_points)
 	
-	# Godot Offset fonksiyonu için yön önemli (Saat yönü tersi)
 	if Geometry2D.is_polygon_clockwise(PackedVector2Array(coast_planar)):
 		world_points.reverse()
 		coast_planar = _build_planar_loop(world_points)
 
-	# Birim Çevirileri
 	var skirt_offset: float = owner._meters_to_world_units(UNDERWATER_SKIRT_WIDTH_M, scale)
 	var plateau_offset: float = owner._meters_to_world_units(BEACH_SLOPE_WIDTH_M, scale)
 
 	# 2. Halka: ETEK (SKIRT) - Dışarı Genişletme
-	# Geometry2D.offset_polygon şekli bozmadan güvenli genişletir.
-	
 	var skirt_polys = Geometry2D.offset_polygon(PackedVector2Array(coast_planar), skirt_offset, Geometry2D.JOIN_ROUND)
 	if skirt_polys.is_empty(): return null
-	# Genelde tek parça döner, ilkini alıyoruz.
 	var skirt_planar_vec2 = skirt_polys[0]
 
 	# 3. Halka: PLATO - İçeri Daraltma
-	# Negatif offset vererek içeri daraltıyoruz.
 	var plateau_polys = Geometry2D.offset_polygon(PackedVector2Array(coast_planar), -plateau_offset, Geometry2D.JOIN_ROUND)
 	
 	var plateau_planar_vec2: PackedVector2Array
 	if plateau_polys.is_empty():
-		# Ada çok darsa ve daralınca yok oluyorsa, olduğu gibi kalsın (duvar gibi yükselsin)
 		plateau_planar_vec2 = PackedVector2Array(coast_planar)
 	else:
 		plateau_planar_vec2 = plateau_polys[0]
@@ -103,7 +95,6 @@ func _create_sloped_safe_chunk(polygon_points: Array, land_props: Dictionary, sc
 	# Plato yüksekliği
 	var h_plateau: float = owner._meters_to_height_units(base_height_m) + owner._meters_to_height_units(PLATEAU_HEIGHT_BOOST)
 	
-	# Vertex Listelerini Hazırla (Yüksekliklerini Vererek)
 	var skirt_verts: Array[Vector3] = []
 	for p in skirt_planar_vec2:
 		skirt_verts.append(Vector3(p.x, h_skirt, p.y))
@@ -153,7 +144,7 @@ func _create_sloped_safe_chunk(polygon_points: Array, land_props: Dictionary, sc
 
 	return land_chunk
 
-# --- İKİ FARKLI HALKAYI BİRBİRİNE DİKEN FONKSİYON (CRASH FIX) ---
+#Crash fix
 func _stitch_rings(st: SurfaceTool, ring_outer: Array[Vector3], ring_inner: Array[Vector3]):
 	if ring_outer.is_empty() or ring_inner.is_empty(): return
 
