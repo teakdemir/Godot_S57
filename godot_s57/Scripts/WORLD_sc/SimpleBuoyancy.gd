@@ -9,8 +9,8 @@ var body: RigidBody3D
 @export var water_angular_drag: float = 0.5
 @export var stability_force: float = 8000.0 
 
-@export var engine_power: float = 50000.0 
-@export var turn_torque: float = 20000.0  
+@export var engine_power: float = 100.0 
+@export var turn_torque: float = 10.0  
 
 @export var lateral_drag: float = 0.95 
 

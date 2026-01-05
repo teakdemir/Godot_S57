@@ -73,10 +73,15 @@ func _setup_lidar(parent_node, count, dist, fov_angle, array_ref, color):
 			if count > 1: angle = deg_to_rad(-fov_angle/2 + (i * fov_angle / (count-1)))
 			else: angle = 0.0
 			
+		# --- BURASI ESKİ HALİNE DÖNDÜ (SENİN ÇALIŞAN KODUN) ---
 		if parent_node == nav_lidar_node:
 			ray.target_position = Vector3(dist, 0, 0).rotated(Vector3.UP, angle + PI)
 		else:
 			ray.target_position = Vector3(0, -dist, 0).rotated(Vector3.RIGHT, angle)
+		
+		# Sadece exception ekliyorum ki gemiye çarpmasın, yönü değiştirmez.
+		if real_ship:
+			ray.add_exception(real_ship)
 			
 		ray.enabled = true
 		ray.debug_shape_custom_color = color
@@ -106,24 +111,29 @@ func create_twist_message(ship_node):
 		\"angular\": { \"x\": -ang.z, \"y\": -ang.x, \"z\": ang.y }
 	}
 
-# --- HEDEF GÖNDERME (Point Tipi - İstenilen Format) ---
+# --- HEDEF GÖNDERME (SENİN İSTEDİĞİN GİBİ GÜNCELLENDİ) ---
 
 func publish_goal(godot_goal_pos: Vector3):
 	var ros_pos = position_godot_to_ros(godot_goal_pos)
 	
-	# Sadece X, Y, Z içeren basit mesaj
-	var point_msg = {
-		\"x\": ros_pos.x,
-		\"y\": ros_pos.y,
-		\"z\": 0.0
+	# İSTEDİĞİN GİBİ MANUEL JSON PAKETİ:
+	var goal_msg = {
+		\"op\": \"publish\",
+		\"topic\": \"/cmd_goal\", 
+		\"type\": \"geometry_msgs/msg/Point\", 
+		\"msg\": {
+			\"x\": ros_pos.x,
+			\"y\": ros_pos.y,
+			\"z\": 0.0
+		}
 	}
 	
 	if not offline_test_mode:
-		print(\"🎯 YENİ HEDEF GİDİYOR (Point): \", point_msg)
-		# Tipi advertise kısmında belirttik, burada sadece publish ve msg yolluyoruz
-		_send_ros_msg(\"publish\", \"/goal_pose\", point_msg)
+		print(\"🎯 YENİ HEDEF GİDİYOR (/cmd_goal): \", goal_msg[\"msg\"])
+		# Direkt senin paketi yolluyoruz:
+		socket.send_text(JSON.stringify(goal_msg))
 	else:
-		print(\"🛠️ OFFLINE MOD: Hedef -> \", point_msg)
+		print(\"🛠️ OFFLINE MOD: Hedef -> \", goal_msg[\"msg\"])
 
 # --- MESAJ OLUŞTURUCULAR ---
 
@@ -203,8 +213,8 @@ func _on_connection_success():
 	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/scan\", \"type\": \"sensor_msgs/msg/LaserScan\"}))
 	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/tf\", \"type\": \"tf2_msgs/msg/TFMessage\"}))
 	
-	# --- BURASI GÜNCELLENDİ: geometry_msgs/msg/Point ---
-	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/goal_pose\", \"type\": \"geometry_msgs/msg/Point\"}))
+	# --- BURASI GÜNCELLENDİ (İSTEDİĞİN GİBİ ADVERTISE) ---
+	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/cmd_goal\", \"type\": \"geometry_msgs/msg/Point\"}))
 	
 	socket.send_text(JSON.stringify({\"op\": \"subscribe\", \"topic\": \"/cmd_vel\", \"type\": \"geometry_msgs/msg/Twist\"}))
 
@@ -216,8 +226,6 @@ func _publish_data():
 	_send_ros_msg(\"publish\", \"/scan\", create_scan_message(timestamp, nav_raycasts))
 
 func _send_ros_msg(op, topic, msg):
-	# publish yaparken type yazmaya gerek yok, advertise'da belirttik.
-	# Rosbridge protokolü: { \"op\": \"publish\", \"topic\": \"...\", \"msg\": ... }
 	socket.send_text(JSON.stringify({ \"op\": op, \"topic\": topic, \"msg\": msg }))
 
 func _handle_incoming(json_str):
@@ -226,7 +234,7 @@ func _handle_incoming(json_str):
 		var data = json.get_data()
 		if data.has(\"topic\") and data[\"topic\"] == \"/cmd_vel\":
 			var msg = data[\"msg\"]
-			print(\"📩 EMİR: L:\", msg[\"linear\"][\"x\"], \" A:\", msg[\"angular\"][\"z\"])
+			# print(\"📩 EMİR: L:\", msg[\"linear\"][\"x\"], \" A:\", msg[\"angular\"][\"z\"])
 			
 			if real_ship:
 				if \"ros_throttle\" in real_ship:
@@ -255,7 +263,6 @@ near = 0.1
 
 [node name="RosManager" type="Node3D" parent="." node_paths=PackedStringArray("nav_lidar_node")]
 script = SubResource("GDScript_xyd1p")
-offline_test_mode = true
 socket_url = "ws://172.20.10.3:9090"
 nav_lidar_node = NodePath("LidarHorizontal")
 nav_rays = 36
