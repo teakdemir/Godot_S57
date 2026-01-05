@@ -213,7 +213,6 @@ near = 0.1
 
 [node name="RosManager" type="Node3D" parent="." node_paths=PackedStringArray("nav_lidar_node")]
 script = SubResource("GDScript_xyd1p")
-offline_test_mode = true
 socket_url = "ws://172.20.10.3:9090"
 nav_lidar_node = NodePath("LidarHorizontal")
 nav_rays = 36
