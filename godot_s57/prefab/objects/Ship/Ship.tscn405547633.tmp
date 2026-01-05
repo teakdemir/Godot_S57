@@ -141,7 +141,7 @@ func _handle_incoming(json_str):
 		# DEBUG: Gelen paketi kontrol ediyoruz
 		if data.has(\"topic\") and data[\"topic\"] == \"/cmd_vel\":
 			# Konsola yazdır ki emrin geldiğini görelim
-			# print(\"GELEN KOMUT: \", data[\"msg\"]) 
+			 print(\"GELEN KOMUT: \", data[\"msg\"]) 
 			
 			var msg = data[\"msg\"]
 			if real_ship:
@@ -214,9 +214,14 @@ near = 0.1
 
 [node name="RosManager" type="Node3D" parent="." node_paths=PackedStringArray("nav_lidar_node")]
 script = SubResource("GDScript_xyd1p")
+offline_test_mode = null
 socket_url = "ws://172.20.10.3:9090"
+publish_rate = null
+override_ros_speed = null
+manual_throttle = null
 nav_lidar_node = NodePath("LidarHorizontal")
 nav_rays = 36
+nav_range = null
 
 [node name="LidarDepth" type="Node3D" parent="RosManager"]
 transform = Transform3D(-4.37114e-08, -0.707107, 0.707107, 0, 0.707107, 0.707107, -1, 3.09086e-08, -3.09086e-08, 0, -0.162156, 0)
