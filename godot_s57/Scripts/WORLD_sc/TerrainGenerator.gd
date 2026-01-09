@@ -145,12 +145,12 @@ func generate_3d_environment(map_data: Dictionary, scale: int) -> Node3D:
 	print("Generating 3D environment (WITH CLIPPING):")
 	print("- Final Sea Patches: " + str(clipped_sea_polygons.size()))
 	
-	# Deniz yüzeyi için 'clipped_sea_polygons' kullanıyoruz (Karanın altı boş)
+	# Deniz yüzeyi için 'clipped_sea_polygons' 
 	var sea_surface: Node3D = _sea_generator.build_surface(clipped_sea_polygons, boundary_base_polygon, depth_areas, scale)
 	if sea_surface:
 		environment_root.add_child(sea_surface)
 
-	# Deniz tabanı delinmemeli, orijinal boundary kullanıyoruz
+	# Deniz tabanı delinmemeli
 	var sea_floor: MeshInstance3D = _sea_generator.build_seafloor(depth_areas, boundary_base_polygon, scale)
 	if sea_floor:
 		environment_root.add_child(sea_floor)
@@ -307,7 +307,7 @@ func _clip_land_from_sea(sea_polygons: Array, land_data_entries: Array) -> Array
 	#Tüm kara poligonlarını Geometry2D formatına çevir
 	var land_shapes: Array[PackedVector2Array] = []
 	
-	# OVERLAP AYARI: Bu değer kadar denizi karanın içine sok yani
+	# OVERLAP AYARI: Bu değer kadar denizi karanın içine sok yani 
 	var clipping_offset = -0.2 
 	
 	for entry in land_data_entries:
@@ -318,9 +318,7 @@ func _clip_land_from_sea(sea_polygons: Array, land_data_entries: Array) -> Array
 			# Karayı Geometry2D formatına al
 			var original_poly = _dict_array_to_packed_vector2(sanitized)
 			
-			# Kara poligonunu biraz "büzüştür" (shrink).
-			# Böylece biz denizden bu "küçülmüş" karayı kestiğimizde,
-			# deniz aslında gerçek karanın birazcık altına girmiş olacak.
+			# deniz aslında gerçek karanın birazcık altına girsin
 			var shrunk_polys = Geometry2D.offset_polygon(original_poly, clipping_offset)
 			
 			for shrunk_poly in shrunk_polys:
