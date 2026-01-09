@@ -6,7 +6,7 @@ var ros_steering: float = 0.0
 
 # --- TEMEL AYARLAR ---
 @export var water_height: float = 0.0
-@export var buoyancy_force: float = 12000.0 # Kaldırma Kuvveti 
+@export var buoyancy_force: float = 15000.0 # Kaldırma Kuvveti 
 
 #bounce_damp = 2.0 ise, 1000kg gemiye 2000, 10kg gemiye 20 direnç uygular.
 

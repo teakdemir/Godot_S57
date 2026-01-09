@@ -178,7 +178,7 @@ func create_scan_message(ts, rays) -> Dictionary:
 "
 
 [node name="Ship" type="RigidBody3D"]
-transform = Transform3D(-4.37114e-08, 0, -1, 0, 1, 0, 1, 0, -4.37114e-08, 0, 0.839898, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.839898, 0)
 mass = 1000.0
 script = ExtResource("1_h5k0y")
 
@@ -196,6 +196,7 @@ near = 0.1
 
 [node name="RosManager" type="Node3D" parent="." node_paths=PackedStringArray("nav_lidar_node")]
 script = SubResource("GDScript_xyd1p")
+offline_test_mode = true
 socket_url = "ws://172.20.10.3:9090"
 nav_lidar_node = NodePath("LidarHorizontal")
 nav_rays = 36
