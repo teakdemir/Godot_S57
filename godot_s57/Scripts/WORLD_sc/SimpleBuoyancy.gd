@@ -13,7 +13,7 @@ var ros_steering: float = 0.0
 
 @export var engine_power: float = 600.0 
 @export var turn_torque: float = 150.0  
-@export var lateral_drag: float = 0.95 
+@export var lateral_drag: float = 20.0
 
 func _ready():
 	if get_node(".") is RigidBody3D: body = get_node(".")

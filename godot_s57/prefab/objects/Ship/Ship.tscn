@@ -12,13 +12,8 @@ script/source = "extends Node3D
 
 # --- GENEL AYARLAR ---
 @export var offline_test_mode: bool = false
-@export var socket_url: String = \"\" 
+@export var socket_url: String = \"ws://127.0.0.1:9090\" 
 @export var publish_rate: float = 10.0
-
-# --- HİBRİT KONTROL (GAZ BİZDE, DİREKSİYON ROS'TA) ---
-@export_group(\"Hibrit Kontrol\")
-@export var override_ros_speed: bool = true  # True: Hızı biz belirleriz (Inspector'dan)
-@export var manual_throttle: float = 1.0     # Sabit Hızımız (0.0 - 1.0 arası)
 
 # --- LIDAR AYARLARI ---
 const SCAN_FRAME_ID = \"base_scan\"
@@ -33,7 +28,6 @@ const RANGE_MIN = 0.5
 @export var nav_rays: int = 72 
 @export var nav_range: float = 50.0 
 
-# --- ODOMETRİ KOVARYANS MATRİSİ ---
 const ODOM_COVARIANCE_ARRAY = [
 	1.0e-05, 0.0, 0.0, 0.0, 0.0, 0.0,
 	0.0, 1.0e-05, 0.0, 0.0, 0.0, 0.0, 
@@ -67,10 +61,14 @@ func _setup_lidar(parent_node, count, dist, fov_angle, array_ref, color):
 		if count > 1:
 			angle = deg_to_rad(-fov_angle/2 + (i * fov_angle / (count-1)))
 		
-		# SENİN ÇALIŞAN ESKİ MATEMATİĞİN
+		# --- LIDAR DÜZELTMESİ BURADA ---
 		if parent_node == nav_lidar_node:
-			ray.target_position = Vector3(dist, 0, 0).rotated(Vector3.UP, angle + PI)
+			# Godot'ta Vector3(dist, 0, 0) SAĞ taraftır (+X).
+			# Bunu ÖN tarafa (-Z) çevirmek için +90 derece (PI/2) döndürmeliyiz.
+			# Eski kodundaki PI (180) yerine PI/2 kullanıyoruz.
+			ray.target_position = Vector3(dist, 0, 0).rotated(Vector3.UP, angle + PI/2)
 		else:
+			# Burası diğer sensörler için, dokunmana gerek yok.
 			ray.target_position = Vector3(0, -dist, 0).rotated(Vector3.RIGHT, angle)
 		
 		if real_ship:
@@ -80,8 +78,6 @@ func _setup_lidar(parent_node, count, dist, fov_angle, array_ref, color):
 		ray.debug_shape_custom_color = color
 		ray.debug_shape_thickness = 2
 		array_ref.append(ray)
-
-# --- İLETİŞİM DÖNGÜSÜ ---
 
 func _process(delta):
 	if offline_test_mode: return
@@ -107,16 +103,14 @@ func _on_connection_success():
 	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/odom\", \"type\": \"nav_msgs/msg/Odometry\"}))
 	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/scan\", \"type\": \"sensor_msgs/msg/LaserScan\"}))
 	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/tf\", \"type\": \"tf2_msgs/msg/TFMessage\"}))
-	
-	# SENİN İSTEDİĞİN ÖZEL ADVERTISE
 	socket.send_text(JSON.stringify({\"op\": \"advertise\", \"topic\": \"/cmd_goal\", \"type\": \"geometry_msgs/msg/Point\"}))
-	
 	socket.send_text(JSON.stringify({\"op\": \"subscribe\", \"topic\": \"/cmd_vel\", \"type\": \"geometry_msgs/msg/Twist\"}))
 
-# --- HEDEF GÖNDERME (SENİN İSTEDİĞİN JSON YAPISI) ---
+# --- İŞTE SENİN ARADIĞIN KISIM (AÇIK HALİ) ---
 func publish_goal(godot_goal_pos: Vector3):
 	var ros_pos = position_godot_to_ros(godot_goal_pos)
 	
+	# Burayı senin istediğin gibi açık yazdım:
 	var goal_msg = {
 		\"op\": \"publish\", 
 		\"topic\": \"/cmd_goal\", 
@@ -128,57 +122,51 @@ func publish_goal(godot_goal_pos: Vector3):
 		}
 	}
 	
-	if is_connected:
+	if socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		socket.send_text(JSON.stringify(goal_msg))
 		print(\"🎯 HEDEF GÖNDERİLDİ: \", goal_msg[\"msg\"])
 
-# --- GELEN VERİYİ İŞLEME (HİBRİT KONTROL BURADA) ---
+# --- GELEN VERİYİ İŞLEME ---
 func _handle_incoming(json_str):
 	var json = JSON.new()
 	if json.parse(json_str) == OK:
 		var data = json.get_data()
 		
-		# DEBUG: Gelen paketi kontrol ediyoruz
 		if data.has(\"topic\") and data[\"topic\"] == \"/cmd_vel\":
-			# Konsola yazdır ki emrin geldiğini görelim
-			# print(\"GELEN KOMUT: \", data[\"msg\"]) 
-			
 			var msg = data[\"msg\"]
 			if real_ship:
-				# 1. DÜMEN: ROS ne derse o (Kaçış manevrası)
 				if \"ros_steering\" in real_ship:
 					real_ship.ros_steering = clamp(msg[\"angular\"][\"z\"], -1.0, 1.0)
 				
-				# 2. GAZ: Override açıksa biz veriyoruz
 				if \"ros_throttle\" in real_ship:
-					if override_ros_speed:
-						# Hassasiyeti artırdık: 0.0001 üstü hareket sayılır
-						if abs(msg[\"linear\"][\"x\"]) > 0.0001:
-							real_ship.ros_throttle = manual_throttle
-						else:
-							real_ship.ros_throttle = 0.0
-					else:
-						# Eski usül
-						real_ship.ros_throttle = clamp(msg[\"linear\"][\"x\"], -1.0, 1.0)
+					real_ship.ros_throttle = clamp(msg[\"linear\"][\"x\"], -1.0, 1.0)
 
-# --- VERİ YAYINLAMA ---
+# --- MATEMATİK YARDIMCILARI (QUATERNION DÜZELTİLDİ) ---
 func _publish_data():
-	var timestamp = get_ros_timestamp()
+	var ts = get_ros_timestamp()
 	if real_ship:
-		_send_ros_msg(\"publish\", \"/odom\", create_odom_message(timestamp, real_ship))
-		_send_ros_msg(\"publish\", \"/tf\", create_tf_message(timestamp, real_ship))
-	_send_ros_msg(\"publish\", \"/scan\", create_scan_message(timestamp, nav_raycasts))
+		_send_ros_msg(\"publish\", \"/odom\", create_odom_message(ts, real_ship))
+		_send_ros_msg(\"publish\", \"/tf\", create_tf_message(ts, real_ship))
+	_send_ros_msg(\"publish\", \"/scan\", create_scan_message(ts, nav_raycasts))
 
 func _send_ros_msg(op, topic, msg):
 	socket.send_text(JSON.stringify({ \"op\": op, \"topic\": topic, \"msg\": msg }))
 
-# --- MATEMATİK YARDIMCILARI ---
 func get_ros_timestamp() -> Dictionary:
 	var t = Time.get_unix_time_from_system(); var s = int(floor(t)); var n = int((t-s)*1e9)
 	return {\"sec\": s, \"nanosec\": n}
-func position_godot_to_ros(p: Vector3) -> Dictionary: return {\"x\":-p.z, \"y\":-p.x, \"z\":p.y}
-func orientation_godot_to_ros(b: Basis) -> Dictionary: var q=b.get_rotation_quaternion(); return {\"x\":q.z, \"y\":q.x, \"z\":-q.y, \"w\":q.w}
-func create_twist_message(n): var l=n.linear_velocity; var a=n.angular_velocity; return {\"linear\":{\"x\":-l.z,\"y\":-l.x,\"z\":l.y},\"angular\":{\"x\":-a.z,\"y\":-a.x,\"z\":a.y}}
+
+func position_godot_to_ros(p: Vector3) -> Dictionary: 
+	return {\"x\":-p.z, \"y\":-p.x, \"z\":p.y}
+
+# Oryantasyon Eksenleri Düzeltildi
+func orientation_godot_to_ros(b: Basis) -> Dictionary: 
+	var q = b.get_rotation_quaternion()
+	return {\"x\": -q.z, \"y\": -q.x, \"z\": q.y, \"w\": q.w}
+
+func create_twist_message(n): 
+	var l=n.linear_velocity; var a=n.angular_velocity; 
+	return {\"linear\":{\"x\":-l.z,\"y\":-l.x,\"z\":l.y},\"angular\":{\"x\":-a.z,\"y\":-a.x,\"z\":a.y}}
 
 func create_odom_message(ts, node) -> Dictionary:
 	return { \"header\": {\"stamp\": ts, \"frame_id\": ODOM_FRAME_ID}, \"child_frame_id\": ROBOT_BASE_FRAME,
@@ -191,7 +179,7 @@ func create_tf_message(ts, node) -> Dictionary:
 
 func create_scan_message(ts, rays) -> Dictionary:
 	var r=[]; for ray in rays: ray.force_raycast_update(); var d=nav_range; if ray.is_colliding(): d=ray.get_collision_point().distance_to(ray.global_position); r.append(d)
-	return { \"header\": {\"stamp\": ts, \"frame_id\": SCAN_FRAME_ID}, \"angle_min\": ANGLE_MIN, \"angle_max\": ANGLE_MAX, \"angle_increment\": PI/float(nav_rays), \"range_min\": RANGE_MIN, \"range_max\": nav_range, \"ranges\": r, \"intensities\": [] }
+	return { \"header\": {\"stamp\": ts, \"frame_id\": SCAN_FRAME_ID}, \"angle_min\": ANGLE_MIN, \"angle_max\": ANGLE_MAX, \"range_min\": RANGE_MIN, \"range_max\": nav_range, \"ranges\": r, \"intensities\": [] }
 "
 
 [node name="Ship" type="RigidBody3D"]
@@ -221,4 +209,4 @@ nav_rays = 36
 transform = Transform3D(-4.37114e-08, -0.707107, 0.707107, 0, 0.707107, 0.707107, -1, 3.09086e-08, -3.09086e-08, 0, -0.162156, 0)
 
 [node name="LidarHorizontal" type="Node3D" parent="RosManager"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.60467, 2.22947, 2.01276e-07)
+transform = Transform3D(-4.37114e-08, 0, 1, 0, 1, 0, -1, 0, -4.37114e-08, -4.60467, 2.22947, 2.01276e-07)
