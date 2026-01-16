@@ -61,12 +61,13 @@ The project utilizes a modern tech stack divided into Server (Data) and Client (
 * [ROS 2 (Humble/Iron)](https://docs.ros.org/en/humble/) (for Autonomous Mode)
 
 ### 1. Setup Backend (Server)
-```bash
+
 cd ORHUN-Server
 docker-compose up --build
 # The API will be available at http://localhost:8000
+✏️ **Edit**
 
-2. Run Simulation (Client)
+### 2.Run Simulation (Client)
 Open Godot Engine 4.
 
 Import the project.godot file from the ORHUN-Client folder.
