@@ -10,7 +10,7 @@ var ros_steering: float = 0.0
 
 #FİZİK KATSAYILARI
 @export var bounce_damp: float = 2.0      # Zıplama Önleyici Sertliği
-@export var lateral_drag: float = 4.0     # Yan Kayma (Drift) Direnci (ARTIRILDI: 2->4)
+@export var lateral_drag: float = 4.0     
 @export var water_drag: float = 1.0       # Genel Su Sürtünmesi
 @export var idle_drag: float = 2.0        # Gaz kesildiğinde ekstra frenleme
 @export var angular_drag: float = 0.1 
@@ -18,9 +18,9 @@ var ros_steering: float = 0.0
 @export var max_speed: float = 5.0        # Maksimum Hız (m/s)
 
 #MOTOR VE DÜMEN
-@export var stability_force: float = 2000.0   # Hacıyatmaz (Dik Durma) Gücü
+@export var stability_force: float = 2000.0   # Hacıyatmaz 
 @export var engine_power: float = 2000.0      # Motor İtiş Gücü
-@export var turn_torque: float = 1200.0       # Dönüş Torku (DÜŞÜRÜLDÜ: 2000->1200)
+@export var turn_torque: float = 1200.0       # Dönüş Torku 
 
 func _ready():
 	# RigidBody'yi bul 
