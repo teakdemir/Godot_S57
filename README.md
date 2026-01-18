@@ -8,7 +8,7 @@ The project aims to provide a risk-free, cost-effective "Digital Twin" environme
 
 ## 🎥 Preview & Demo
 
-*(Gameplay video demonstrating the autonomous navigation and physics engine will be added here soon.)*
+[![ORHUN Demo](https://img.youtube.com/vi/KFsBebyY78U/0.jpg)](https://www.youtube.com/watch?v=KFsBebyY78U)
 
 ---
 
